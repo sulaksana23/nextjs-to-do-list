@@ -12,6 +12,9 @@ type WorkspaceUser = {
   name: string;
   initials: string;
   tone: string;
+  telegramNumber: string;
+  telegramChatId: string;
+  hasPassword: boolean;
 };
 
 type WorkspaceProject = {
@@ -26,6 +29,7 @@ type Subtask = {
   id: string;
   title: string;
   completed: boolean;
+  assigneeId: string;
 };
 
 type Task = {
@@ -60,10 +64,35 @@ type ProjectDraft = {
   name: string;
 };
 
+type UserDraft = {
+  name: string;
+  telegramNumber: string;
+  telegramChatId: string;
+  password: string;
+  color: string;
+};
+
+type AuthForm = {
+  name: string;
+  telegramNumber: string;
+  password: string;
+  telegramChatId: string;
+};
+
+type SessionUser = {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  telegramNumber: string;
+  telegramChatId: string;
+};
+
 type WorkspaceResponse = {
   users: WorkspaceUser[];
   projects: WorkspaceProject[];
   tasks: Task[];
+  currentUser: SessionUser;
 };
 
 type WorkspaceView = "Dashboard" | "Home" | "Inbox" | "My Tasks" | "Replies" | "Assigned";
@@ -113,6 +142,21 @@ const defaultProjectDraft: ProjectDraft = {
   name: "",
 };
 
+const defaultUserDraft: UserDraft = {
+  name: "",
+  telegramNumber: "",
+  telegramChatId: "",
+  password: "",
+  color: "",
+};
+
+const defaultAuthForm: AuthForm = {
+  name: "",
+  telegramNumber: "",
+  password: "",
+  telegramChatId: "",
+};
+
 function normalizeUsers(value: unknown): WorkspaceUser[] {
   if (!Array.isArray(value)) {
     return [];
@@ -135,6 +179,11 @@ function normalizeUsers(value: unknown): WorkspaceUser[] {
         name: user.name,
         initials: typeof user.initials === "string" ? user.initials : user.name.slice(0, 2),
         tone: typeof user.tone === "string" ? user.tone : "muted",
+        telegramNumber:
+          typeof user.telegramNumber === "string" ? user.telegramNumber : "",
+        telegramChatId:
+          typeof user.telegramChatId === "string" ? user.telegramChatId : "",
+        hasPassword: Boolean(user.hasPassword),
       };
     })
     .filter((item): item is WorkspaceUser => item !== null);
@@ -165,6 +214,7 @@ function normalizeSubtasks(value: unknown): Subtask[] {
             : `subtask-${index}`,
         title,
         completed: Boolean(subtask.completed),
+        assigneeId: typeof subtask.assigneeId === "string" ? subtask.assigneeId : "",
       };
     })
     .filter((item): item is Subtask => item !== null);
@@ -265,17 +315,43 @@ function toPayload(draft: TaskDraft) {
   };
 }
 
+function normalizeSessionUser(value: unknown): SessionUser | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const user = value as Partial<SessionUser>;
+
+  if (typeof user.id !== "string" || typeof user.name !== "string") {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    name: user.name,
+    initials: typeof user.initials === "string" ? user.initials : user.name.slice(0, 2),
+    color: typeof user.color === "string" ? user.color : "teal",
+    telegramNumber: typeof user.telegramNumber === "string" ? user.telegramNumber : "",
+    telegramChatId: typeof user.telegramChatId === "string" ? user.telegramChatId : "",
+  };
+}
+
 export default function TaskflowDashboard() {
   const titleId = useId();
   const [users, setUsers] = useState<WorkspaceUser[]>([]);
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [draft, setDraft] = useState<TaskDraft>(defaultDraft);
   const [projectDraft, setProjectDraft] = useState<ProjectDraft>(defaultProjectDraft);
+  const [userDraft, setUserDraft] = useState<UserDraft>(defaultUserDraft);
+  const [authForm, setAuthForm] = useState<AuthForm>(defaultAuthForm);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>("Home");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -291,69 +367,86 @@ export default function TaskflowDashboard() {
   const [requestError, setRequestError] = useState("");
   const [projectValidationMessage, setProjectValidationMessage] = useState("");
   const [projectRequestError, setProjectRequestError] = useState("");
+  const [userValidationMessage, setUserValidationMessage] = useState("");
+  const [userRequestError, setUserRequestError] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [subtaskAssigneeId, setSubtaskAssigneeId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isProjectSaving, setIsProjectSaving] = useState(false);
+  const [isUserSaving, setIsUserSaving] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function loadWorkspace() {
+    setIsLoading(true);
+    setRequestError("");
 
-    async function loadWorkspace() {
-      try {
-        setIsLoading(true);
-        setRequestError("");
+    try {
+      const response = await fetch("/api/workspace", {
+        cache: "no-store",
+      });
 
-        const response = await fetch("/api/workspace", {
-          cache: "no-store",
-        });
+      const payload = (await response.json()) as Partial<WorkspaceResponse> & {
+        error?: string;
+        detail?: string;
+      };
 
-        const payload = (await response.json()) as Partial<WorkspaceResponse> & {
-          error?: string;
-          detail?: string;
-        };
-
-        if (!response.ok) {
-          throw new Error(payload.detail || payload.error || "Failed to load workspace.");
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        const nextUsers = normalizeUsers(payload.users);
-        const nextProjects = normalizeProjects(payload.projects);
-        const nextTasks = normalizeTasks(payload.tasks);
-        setUsers(nextUsers);
-        setProjects(nextProjects);
-        setTasks(nextTasks);
-        setSelectedProjectId((current) => current || nextProjects[0]?.id || "");
-        setDraft((current) => ({
-          ...current,
-          projectId: current.projectId || nextProjects[0]?.id || "",
-          assigneeId: current.assigneeId || nextUsers[0]?.id || "",
-        }));
-      } catch (error) {
-        if (!cancelled) {
-          setRequestError(error instanceof Error ? error.message : "Failed to load workspace.");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+      if (response.status === 401) {
+        setCurrentUser(null);
+        setUsers([]);
+        setProjects([]);
+        setTasks([]);
+        return;
       }
+
+      if (!response.ok) {
+        throw new Error(payload.detail || payload.error || "Failed to load workspace.");
+      }
+
+      const nextUsers = normalizeUsers(payload.users);
+      const nextProjects = normalizeProjects(payload.projects);
+      const nextTasks = normalizeTasks(payload.tasks);
+      const nextCurrentUser = normalizeSessionUser(payload.currentUser);
+      setCurrentUser(nextCurrentUser);
+      setUsers(nextUsers);
+      setProjects(nextProjects);
+      setTasks(nextTasks);
+      setSelectedProjectId((current) => current || nextProjects[0]?.id || "");
+      setDraft((current) => ({
+        ...current,
+        projectId: current.projectId || nextProjects[0]?.id || "",
+        assigneeId: current.assigneeId || nextUsers[0]?.id || "",
+      }));
+      setSubtaskAssigneeId((current) => current || nextUsers[0]?.id || "");
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to load workspace.");
+    } finally {
+      setIsLoading(false);
     }
+  }
 
-    loadWorkspace();
-
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    void loadWorkspace();
   }, []);
 
   const activeProject =
     projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null;
+  const currentWorkspaceUser =
+    users.find((user) => user.id === currentUser?.id) ??
+    (currentUser
+      ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          initials: currentUser.initials,
+          tone: currentUser.color,
+          telegramNumber: currentUser.telegramNumber,
+          telegramChatId: currentUser.telegramChatId,
+          hasPassword: true,
+        }
+      : null);
 
   const scopedTasks = selectedProjectId
     ? tasks.filter((task) => task.projectId === selectedProjectId)
@@ -427,7 +520,7 @@ export default function TaskflowDashboard() {
     status,
     tasks: filteredTasks.filter((task) => task.status === status),
   }));
-  const myTasks = filteredTasks.filter((task) => task.assigneeId === users[0]?.id);
+  const myTasks = filteredTasks.filter((task) => task.assigneeId === currentUser?.id);
   const holdTasks = scopedTasks.filter((task) => task.status === "Hold").length;
   const assignedTasks = scopedTasks.filter((task) => task.assigneeId);
   const inboxTasks = scopedTasks.slice(0, 6);
@@ -458,8 +551,9 @@ export default function TaskflowDashboard() {
     setDraft({
       ...defaultDraft,
       projectId: selectedProjectId || projects[0]?.id || "",
-      assigneeId: users[0]?.id || "",
+      assigneeId: currentUser?.id || users[0]?.id || "",
     });
+    setSubtaskAssigneeId(currentUser?.id || users[0]?.id || "");
     setEditingTaskId(null);
     setValidationMessage("");
     setIsModalOpen(false);
@@ -481,6 +575,22 @@ export default function TaskflowDashboard() {
     setIsProjectModalOpen(false);
   }
 
+  function openCreateUserModal() {
+    setUserDraft(defaultUserDraft);
+    setEditingUserId(null);
+    setUserValidationMessage("");
+    setUserRequestError("");
+    setIsUserModalOpen(true);
+  }
+
+  function resetUserDraft() {
+    setUserDraft(defaultUserDraft);
+    setEditingUserId(null);
+    setUserValidationMessage("");
+    setUserRequestError("");
+    setIsUserModalOpen(false);
+  }
+
   function addSubtaskToDraft() {
     const title = draft.subtaskInput.trim();
 
@@ -497,6 +607,7 @@ export default function TaskflowDashboard() {
           id: `subtask-${crypto.randomUUID()}`,
           title,
           completed: false,
+          assigneeId: subtaskAssigneeId,
         },
       ],
     }));
@@ -608,6 +719,7 @@ export default function TaskflowDashboard() {
       subtaskInput: "",
       subtasks: normalizeSubtasks(task.subtasks),
     });
+    setSubtaskAssigneeId(task.assigneeId);
     setEditingTaskId(task.id);
     setIsModalOpen(true);
     setValidationMessage("");
@@ -754,8 +866,201 @@ export default function TaskflowDashboard() {
     }
   }
 
+  function handleUserEdit(user: WorkspaceUser) {
+    setUserDraft({
+      name: user.name,
+      telegramNumber: user.telegramNumber,
+      telegramChatId: user.telegramChatId,
+      password: "",
+      color: user.tone,
+    });
+    setEditingUserId(user.id);
+    setUserValidationMessage("");
+    setUserRequestError("");
+    setIsUserModalOpen(true);
+  }
+
+  async function handleUserSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!userDraft.name.trim()) {
+      setUserValidationMessage("Nama user wajib diisi.");
+      return;
+    }
+
+    if (!userDraft.telegramNumber.trim()) {
+      setUserValidationMessage("Nomor Telegram wajib diisi.");
+      return;
+    }
+
+    try {
+      setIsUserSaving(true);
+      setUserValidationMessage("");
+      setUserRequestError("");
+
+      const response = await fetch(
+        editingUserId ? `/api/workspace/users/${editingUserId}` : "/api/workspace/users",
+        {
+          method: editingUserId ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userDraft),
+        },
+      );
+
+      const data = (await response.json()) as {
+        user?: WorkspaceUser;
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok || !data.user) {
+        throw new Error(data.detail || data.error || "Failed to save user.");
+      }
+
+      const nextUser = normalizeUsers([data.user])[0];
+
+      if (!nextUser) {
+        throw new Error("Invalid user response.");
+      }
+
+      setUsers((current) =>
+        editingUserId
+          ? current.map((user) => (user.id === editingUserId ? nextUser : user))
+          : [...current, nextUser],
+      );
+      setDraft((current) => ({
+        ...current,
+        assigneeId: current.assigneeId || nextUser.id,
+      }));
+      setSubtaskAssigneeId((current) => current || nextUser.id);
+      resetUserDraft();
+    } catch (error) {
+      setUserRequestError(error instanceof Error ? error.message : "Failed to save user.");
+    } finally {
+      setIsUserSaving(false);
+    }
+  }
+
+  async function handleUserDelete(userId: string) {
+    try {
+      setUserRequestError("");
+      const response = await fetch(`/api/workspace/users/${userId}`, {
+        method: "DELETE",
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || "Failed to delete user.");
+      }
+
+      setUsers((current) => current.filter((user) => user.id !== userId));
+      setTasks((current) =>
+        current.map((task) => ({
+          ...task,
+          assigneeId: task.assigneeId === userId ? "" : task.assigneeId,
+          subtasks: task.subtasks.map((subtask) => ({
+            ...subtask,
+            assigneeId: subtask.assigneeId === userId ? "" : subtask.assigneeId,
+          })),
+        })),
+      );
+      resetUserDraft();
+    } catch (error) {
+      setUserRequestError(error instanceof Error ? error.message : "Failed to delete user.");
+    }
+  }
+
+  async function handleAuthSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!authForm.telegramNumber.trim()) {
+      setAuthError("Nomor Telegram wajib diisi.");
+      return;
+    }
+
+    if (!authForm.password.trim()) {
+      setAuthError("Password wajib diisi.");
+      return;
+    }
+
+    if (!isLoginMode && !authForm.name.trim()) {
+      setAuthError("Nama wajib diisi untuk register.");
+      return;
+    }
+
+    try {
+      setIsAuthenticating(true);
+      setAuthError("");
+
+      const response = await fetch(isLoginMode ? "/api/auth/login" : "/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(authForm),
+      });
+
+      const data = (await response.json()) as {
+        user?: SessionUser;
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok || !data.user) {
+        throw new Error(data.detail || data.error || "Failed to authenticate.");
+      }
+
+      setCurrentUser(normalizeSessionUser(data.user));
+      setAuthForm(defaultAuthForm);
+      await loadWorkspace();
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Failed to authenticate.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  }
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+    setCurrentUser(null);
+    setUsers([]);
+    setProjects([]);
+    setTasks([]);
+  }
+
   if (isLoading) {
     return <WorkspaceSkeleton />;
+  }
+
+  if (!currentUser) {
+    return (
+      <AuthShell
+        authForm={authForm}
+        authError={authError}
+        isAuthenticating={isAuthenticating}
+        isLoginMode={isLoginMode}
+        onSubmit={handleAuthSubmit}
+        onChange={(field, value) =>
+          setAuthForm((current) => ({
+            ...current,
+            [field]: value,
+          }))
+        }
+        onToggleMode={() => {
+          setIsLoginMode((current) => !current);
+          setAuthError("");
+        }}
+      />
+    );
   }
 
   return (
@@ -869,6 +1174,15 @@ export default function TaskflowDashboard() {
         </section>
 
         <div className="workspace-sidebarFooter">
+          {currentWorkspaceUser ? (
+            <div className="workspace-sessionCard">
+              <Avatar user={currentWorkspaceUser} />
+              <div className="workspace-sessionMeta">
+                <span>{currentWorkspaceUser.name}</span>
+                <span>{currentWorkspaceUser.telegramNumber || "No Telegram number"}</span>
+              </div>
+            </div>
+          ) : null}
           <div className="workspace-statLine">
             <span>Open</span>
             <span>{openCount}</span>
@@ -929,6 +1243,18 @@ export default function TaskflowDashboard() {
               <option value="Priority">Priority</option>
               <option value="Due soon">Due soon</option>
             </select>
+
+            <button
+              type="button"
+              className="workspace-ghostButton"
+              onClick={() => setActiveView("Timesheet")}
+            >
+              Team
+            </button>
+
+            <button type="button" className="workspace-ghostButton" onClick={handleLogout}>
+              Logout
+            </button>
           </div>
         </header>
 
@@ -952,8 +1278,9 @@ export default function TaskflowDashboard() {
                   setDraft((current) => ({
                     ...defaultDraft,
                     projectId: selectedProjectId || projects[0]?.id || current.projectId,
-                    assigneeId: users[0]?.id || current.assigneeId,
+                    assigneeId: currentUser?.id || users[0]?.id || current.assigneeId,
                   }));
+                  setSubtaskAssigneeId(currentUser?.id || users[0]?.id || "");
                   setValidationMessage("");
                   setRequestError("");
                   setIsModalOpen(true);
@@ -971,7 +1298,7 @@ export default function TaskflowDashboard() {
             <div className="workspace-homeHero">
               <div>
                 <p className="workspace-sectionEyebrow">Home</p>
-                <h2 className="workspace-homeTitle">Welcome back, {users[0]?.name || "Team"}.</h2>
+                <h2 className="workspace-homeTitle">Welcome back, {currentUser?.name || "Team"}.</h2>
                 <p className="workspace-homeText">
                   Ringkasan cepat untuk melihat apa yang masih hold, apa yang lagi jalan,
                   dan task mana yang paling butuh perhatian hari ini.
@@ -1131,29 +1458,34 @@ export default function TaskflowDashboard() {
                           {subtasks.length > 0 ? (
                             <div className="workspace-subtaskList">
                               {subtasks.map((subtask) => (
-                                <button
-                                  key={subtask.id}
-                                  type="button"
-                                  onClick={() => handleToggleSubtask(task.id, subtask.id)}
-                                  className="workspace-subtaskToggle"
-                                >
-                                  <span
-                                    className={
-                                      subtask.completed
-                                        ? "workspace-subtaskDot done"
-                                        : "workspace-subtaskDot"
-                                    }
-                                  />
-                                  <span
-                                    className={
-                                      subtask.completed
-                                        ? "workspace-subtaskText done"
-                                        : "workspace-subtaskText"
-                                    }
+                                <div key={subtask.id} className="workspace-subtaskLine">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleSubtask(task.id, subtask.id)}
+                                    className="workspace-subtaskToggle"
                                   >
-                                    {subtask.title}
+                                    <span
+                                      className={
+                                        subtask.completed
+                                          ? "workspace-subtaskDot done"
+                                          : "workspace-subtaskDot"
+                                      }
+                                    />
+                                    <span
+                                      className={
+                                        subtask.completed
+                                          ? "workspace-subtaskText done"
+                                          : "workspace-subtaskText"
+                                      }
+                                    >
+                                      {subtask.title}
+                                    </span>
+                                  </button>
+                                  <span className="workspace-subtaskAssignee">
+                                    {users.find((user) => user.id === subtask.assigneeId)?.name ||
+                                      "Unassigned"}
                                   </span>
-                                </button>
+                                </div>
                               ))}
                             </div>
                           ) : null}
@@ -1242,7 +1574,7 @@ export default function TaskflowDashboard() {
               <div className="workspace-homePanelHeader">
                 <div>
                   <p className="workspace-sectionEyebrow">My Tasks</p>
-                  <h3 className="workspace-homePanelTitle">Assigned to {users[0]?.name || "you"}</h3>
+                  <h3 className="workspace-homePanelTitle">Assigned to {currentUser?.name || "you"}</h3>
                 </div>
                 <span className="workspace-homeMeta">{myTasks.length} tasks</span>
               </div>
@@ -1459,20 +1791,52 @@ export default function TaskflowDashboard() {
               <div className="workspace-homePanelHeader">
                 <div>
                   <p className="workspace-sectionEyebrow">Timesheet</p>
-                  <h3 className="workspace-homePanelTitle">Workload by assignee</h3>
+                  <h3 className="workspace-homePanelTitle">Team, login, and Telegram routing</h3>
                 </div>
+                <button type="button" className="workspace-primaryButton" onClick={openCreateUserModal}>
+                  + User
+                </button>
               </div>
               <div className="workspace-homeList">
                 {users.map((user) => {
                   const total = tasks.filter((task) => task.assigneeId === user.id).length;
+                  const assignedSubtasks = tasks.reduce(
+                    (count, task) =>
+                      count +
+                      task.subtasks.filter((subtask) => subtask.assigneeId === user.id).length,
+                    0,
+                  );
 
                   return (
                     <div key={user.id} className="workspace-homeItem static">
                       <div>
                         <p className="workspace-homeItemTitle">{user.name}</p>
-                        <p className="workspace-homeItemMeta">{total} assigned tasks</p>
+                        <p className="workspace-homeItemMeta">
+                          {user.telegramNumber || "No Telegram number"} • {total} tasks •{" "}
+                          {assignedSubtasks} subtasks
+                        </p>
+                        <p className="workspace-homeItemMeta">
+                          Chat ID: {user.telegramChatId || "Belum diisi"} • Login:{" "}
+                          {user.hasPassword ? "Ready" : "Belum diset"}
+                        </p>
                       </div>
-                      <Avatar user={user} />
+                      <div className="workspace-userActions">
+                        <Avatar user={user} />
+                        <button
+                          type="button"
+                          onClick={() => handleUserEdit(user)}
+                          className="workspace-ghostButton"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUserDelete(user.id)}
+                          className="workspace-dangerButton"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1624,6 +1988,7 @@ export default function TaskflowDashboard() {
                       onChange={(event) => handleDraftChange("assigneeId", event.target.value)}
                       className="workspace-modalFieldControl"
                     >
+                      <option value="">Unassigned</option>
                       {users.map((user) => (
                         <option key={user.id} value={user.id}>
                           {user.name}
@@ -1674,6 +2039,18 @@ export default function TaskflowDashboard() {
                       placeholder="Add subtask"
                       className="workspace-input workspace-modalSubtaskInput"
                     />
+                    <select
+                      value={subtaskAssigneeId}
+                      onChange={(event) => setSubtaskAssigneeId(event.target.value)}
+                      className="workspace-modalFieldControl workspace-modalSubtaskAssignee"
+                    >
+                      <option value="">Assign subtask</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       onClick={addSubtaskToDraft}
@@ -1687,7 +2064,15 @@ export default function TaskflowDashboard() {
                     <div className="workspace-subtaskDrafts">
                       {draft.subtasks.map((subtask) => (
                         <div key={subtask.id} className="workspace-subtaskDraft">
-                          <span>{subtask.title}</span>
+                          <span>
+                            {subtask.title}
+                            {subtask.assigneeId
+                              ? ` • ${
+                                  users.find((user) => user.id === subtask.assigneeId)?.name ||
+                                  "Assigned"
+                                }`
+                              : ""}
+                          </span>
                           <button
                             type="button"
                             onClick={() => removeDraftSubtask(subtask.id)}
@@ -1814,6 +2199,237 @@ export default function TaskflowDashboard() {
           </div>
         </div>
       ) : null}
+
+      {isUserModalOpen ? (
+        <div className="workspace-modalOverlay" onClick={resetUserDraft}>
+          <div
+            className="workspace-modal workspace-projectModal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="workspace-modalHeader">
+              <div>
+                <p className="workspace-sectionEyebrow">User</p>
+                <h2 className="workspace-sectionTitle">
+                  {editingUserId ? "Edit user" : "Create user"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={resetUserDraft}
+                className="workspace-modalIconButton"
+                aria-label="Close user modal"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="workspace-taskModalForm" onSubmit={handleUserSubmit}>
+              <div className="workspace-taskModalBody">
+                <div className="workspace-modalFieldBlock">
+                  <label htmlFor={`${titleId}-user-name`} className="workspace-modalFieldLabel">
+                    Name
+                  </label>
+                  <input
+                    id={`${titleId}-user-name`}
+                    value={userDraft.name}
+                    onChange={(event) =>
+                      setUserDraft((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Bayu"
+                    className="workspace-input workspace-modalTitleInput"
+                  />
+                </div>
+
+                <div className="workspace-modalFieldBlock">
+                  <label htmlFor={`${titleId}-user-number`} className="workspace-modalFieldLabel">
+                    Telegram Number
+                  </label>
+                  <input
+                    id={`${titleId}-user-number`}
+                    value={userDraft.telegramNumber}
+                    onChange={(event) =>
+                      setUserDraft((current) => ({
+                        ...current,
+                        telegramNumber: event.target.value,
+                      }))
+                    }
+                    placeholder="+628123456789"
+                    className="workspace-input workspace-modalTitleInput"
+                  />
+                </div>
+
+                <div className="workspace-modalFieldBlock">
+                  <label htmlFor={`${titleId}-user-chat`} className="workspace-modalFieldLabel">
+                    Telegram Chat ID
+                  </label>
+                  <input
+                    id={`${titleId}-user-chat`}
+                    value={userDraft.telegramChatId}
+                    onChange={(event) =>
+                      setUserDraft((current) => ({
+                        ...current,
+                        telegramChatId: event.target.value,
+                      }))
+                    }
+                    placeholder="Optional: 123456789"
+                    className="workspace-input workspace-modalTitleInput"
+                  />
+                </div>
+
+                <div className="workspace-taskModalPills">
+                  <label className="workspace-modalFieldPill">
+                    <span>Password</span>
+                    <input
+                      type="password"
+                      value={userDraft.password}
+                      onChange={(event) =>
+                        setUserDraft((current) => ({
+                          ...current,
+                          password: event.target.value,
+                        }))
+                      }
+                      placeholder={editingUserId ? "Leave blank to keep" : "At least 6 characters"}
+                      className="workspace-modalFieldControl"
+                    />
+                  </label>
+
+                  <label className="workspace-modalFieldPill">
+                    <span>Color</span>
+                    <input
+                      value={userDraft.color}
+                      onChange={(event) =>
+                        setUserDraft((current) => ({
+                          ...current,
+                          color: event.target.value,
+                        }))
+                      }
+                      placeholder="teal"
+                      className="workspace-modalFieldControl"
+                    />
+                  </label>
+                </div>
+
+                {userValidationMessage ? (
+                  <p className="workspace-validation">{userValidationMessage}</p>
+                ) : null}
+                {userRequestError ? <p className="workspace-validation">{userRequestError}</p> : null}
+              </div>
+
+              <div className="workspace-modalFooter">
+                <div className="workspace-modalFooterActions">
+                  {editingUserId ? (
+                    <button
+                      type="button"
+                      className="workspace-dangerButton"
+                      onClick={() => handleUserDelete(editingUserId)}
+                    >
+                      Delete User
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="workspace-modalFooterActions">
+                  <button type="button" className="workspace-ghostButton" onClick={resetUserDraft}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="workspace-primaryButton workspace-modalSubmitButton"
+                    disabled={isUserSaving}
+                  >
+                    {isUserSaving ? "Saving..." : editingUserId ? "Save User" : "Create User"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </main>
+  );
+}
+
+function AuthShell({
+  authForm,
+  authError,
+  isAuthenticating,
+  isLoginMode,
+  onSubmit,
+  onChange,
+  onToggleMode,
+}: {
+  authForm: AuthForm;
+  authError: string;
+  isAuthenticating: boolean;
+  isLoginMode: boolean;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onChange: (field: keyof AuthForm, value: string) => void;
+  onToggleMode: () => void;
+}) {
+  return (
+    <main className="auth-shell">
+      <section className="auth-panel">
+        <p className="workspace-sectionEyebrow">Telegram Workspace</p>
+        <h1 className="auth-title">Login atau register dengan nomor Telegram.</h1>
+        <p className="auth-copy">
+          Setelah user punya `telegramChatId`, assignment task dan subtask akan bisa dikirim ke
+          Telegram lewat bot.
+        </p>
+
+        <form className="auth-form" onSubmit={onSubmit}>
+          {!isLoginMode ? (
+            <input
+              value={authForm.name}
+              onChange={(event) => onChange("name", event.target.value)}
+              placeholder="Full name"
+              className="workspace-input auth-input"
+            />
+          ) : null}
+
+          <input
+            value={authForm.telegramNumber}
+            onChange={(event) => onChange("telegramNumber", event.target.value)}
+            placeholder="+628123456789"
+            className="workspace-input auth-input"
+          />
+
+          {!isLoginMode ? (
+            <input
+              value={authForm.telegramChatId}
+              onChange={(event) => onChange("telegramChatId", event.target.value)}
+              placeholder="Optional Telegram chat id"
+              className="workspace-input auth-input"
+            />
+          ) : null}
+
+          <input
+            type="password"
+            value={authForm.password}
+            onChange={(event) => onChange("password", event.target.value)}
+            placeholder="Password"
+            className="workspace-input auth-input"
+          />
+
+          {authError ? <p className="workspace-validation">{authError}</p> : null}
+
+          <button type="submit" className="workspace-primaryButton auth-submit" disabled={isAuthenticating}>
+            {isAuthenticating
+              ? "Please wait..."
+              : isLoginMode
+                ? "Login"
+                : "Register"}
+          </button>
+        </form>
+
+        <button type="button" className="workspace-ghostButton auth-toggle" onClick={onToggleMode}>
+          {isLoginMode
+            ? "Belum punya akun? Register dengan nomor Telegram"
+            : "Sudah punya akun? Login di sini"}
+        </button>
+      </section>
     </main>
   );
 }
@@ -1827,8 +2443,13 @@ function HomeStatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Avatar({ user }: { user: WorkspaceUser }) {
-  return <span className={`workspace-avatar ${user.tone}`}>{user.initials}</span>;
+function Avatar({
+  user,
+}: {
+  user: Pick<WorkspaceUser, "initials" | "tone"> | Pick<SessionUser, "initials" | "color">;
+}) {
+  const tone = "tone" in user ? user.tone : user.color;
+  return <span className={`workspace-avatar ${tone}`}>{user.initials}</span>;
 }
 
 function getStatusTone(status: TaskStatus) {

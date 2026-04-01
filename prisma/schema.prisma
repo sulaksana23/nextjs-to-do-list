@@ -20,13 +20,17 @@ enum TodoTaskStatus {
 }
 
 model TodoUser {
-  id        String     @id @default(cuid())
-  name      String
-  initials  String
-  color     String
-  tasks     TodoTask[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id               String        @id @default(cuid())
+  name             String
+  initials         String
+  color            String
+  telegramNumber   String?       @unique
+  telegramChatId   String?
+  passwordHash     String?
+  tasks            TodoTask[]
+  assignedSubtasks TodoSubtask[] @relation("TodoSubtaskAssignee")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@map("todo_users")
 }
@@ -66,15 +70,18 @@ model TodoTask {
 }
 
 model TodoSubtask {
-  id        String   @id @default(cuid())
-  title     String
-  completed Boolean  @default(false)
-  position  Int      @default(0)
-  taskId    String
-  task      TodoTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(cuid())
+  title      String
+  completed  Boolean   @default(false)
+  position   Int       @default(0)
+  taskId     String
+  task       TodoTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assigneeId String?
+  assignee   TodoUser? @relation("TodoSubtaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([taskId, position])
+  @@index([assigneeId])
   @@map("todo_subtasks")
 }

@@ -1,33 +1,28 @@
 import { NextResponse } from "next/server";
+import { requireSessionUser } from "@/lib/auth";
+import { errorResponse } from "@/lib/http";
 import { createTask, getWorkspaceData, type TaskInput } from "@/lib/workspace-data";
 
 export async function GET() {
   try {
+    const currentUser = await requireSessionUser();
     const data = await getWorkspaceData();
-    return NextResponse.json(data);
+    return NextResponse.json({
+      ...data,
+      currentUser,
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Failed to load workspace data.",
-        detail: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    );
+    return errorResponse(error, "Failed to load workspace data.");
   }
 }
 
 export async function POST(request: Request) {
   try {
+    await requireSessionUser();
     const payload = (await request.json()) as TaskInput;
     const task = await createTask(payload);
     return NextResponse.json({ task });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Failed to create task.",
-        detail: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    );
+    return errorResponse(error, "Failed to create task.");
   }
 }

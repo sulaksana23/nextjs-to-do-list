@@ -291,6 +291,26 @@ a {
   padding: 0.7rem;
 }
 
+.workspace-sessionCard {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.45rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-sessionMeta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.workspace-sessionMeta span:last-child {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
 .workspace-statLine {
   display: flex;
   align-items: center;
@@ -719,8 +739,12 @@ a {
 
 .workspace-subtaskComposer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, auto) auto;
   gap: 0.5rem;
+}
+
+.workspace-modalSubtaskAssignee {
+  min-width: 0;
 }
 
 .workspace-subtaskDrafts {
@@ -889,6 +913,14 @@ a {
   cursor: default;
 }
 
+.workspace-userActions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .workspace-homeItemTitle {
   color: white;
   font-size: 0.84rem;
@@ -1045,6 +1077,14 @@ a {
   background: #7f7f87;
 }
 
+.workspace-avatar.rose {
+  background: #d84f7d;
+}
+
+.workspace-avatar.lime {
+  background: #7aa11d;
+}
+
 .workspace-avatar.muted {
   background: #50505a;
 }
@@ -1077,9 +1117,16 @@ a {
 
 .workspace-subtaskList {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
+  flex-direction: column;
+  gap: 0.35rem;
   margin-top: 0.4rem;
+}
+
+.workspace-subtaskLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
 }
 
 .workspace-subtaskToggle {
@@ -1112,6 +1159,12 @@ a {
   text-decoration: line-through;
 }
 
+.workspace-subtaskAssignee {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
 .workspace-emptyRow {
   color: var(--text-muted);
   font-size: 0.84rem;
@@ -1128,6 +1181,58 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at top, rgba(24, 182, 122, 0.15), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(245, 66, 145, 0.18), transparent 24%),
+    var(--canvas);
+}
+
+.auth-panel {
+  width: min(100%, 30rem);
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  background: rgba(17, 17, 19, 0.94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  padding: 1.5rem;
+}
+
+.auth-title {
+  margin-top: 0.45rem;
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  line-height: 1.05;
+}
+
+.auth-copy {
+  margin-top: 0.7rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.15rem;
+}
+
+.auth-input {
+  min-height: 3rem;
+}
+
+.auth-submit {
+  justify-content: center;
+  min-height: 3rem;
+}
+
+.auth-toggle {
+  margin-top: 0.9rem;
 }
 
 ::-webkit-scrollbar {
@@ -1214,5 +1319,15 @@ a {
 
   .workspace-actionsCell {
     padding-top: 0.3rem;
+  }
+
+  .workspace-subtaskLine,
+  .workspace-topActions,
+  .workspace-userActions {
+    flex-wrap: wrap;
+  }
+
+  .workspace-subtaskComposer {
+    grid-template-columns: 1fr;
   }
 }

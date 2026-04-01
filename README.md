@@ -138,6 +138,19 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=todo_app&sslmod
 
 Project ini juga menambahkan fallback di runtime Prisma: kalau `DATABASE_URL` tidak menyertakan parameter `schema`, aplikasi akan otomatis memakai schema `todo_app`.
 
+Environment variable tambahan untuk fitur auth + Telegram:
+
+```env
+AUTH_SECRET="replace-with-a-long-random-secret"
+TELEGRAM_BOT_TOKEN="your-bot-token"
+```
+
+Catatan:
+
+- login/register sekarang memakai nomor Telegram + password
+- notifikasi Telegram dikirim ke `telegramChatId` user yang di-assign
+- setelah update schema, deploy akan menjalankan migration otomatis dari script build
+
 ## Menjalankan Project
 
 Jalankan development server:

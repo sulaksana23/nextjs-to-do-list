@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireSessionUser } from "@/lib/auth";
+import { errorResponse } from "@/lib/http";
 import { toggleSubtask } from "@/lib/workspace-data";
 
 type Context = {
@@ -10,16 +12,11 @@ type Context = {
 
 export async function PATCH(_request: Request, context: Context) {
   try {
+    await requireSessionUser();
     const { taskId, subtaskId } = await context.params;
     const task = await toggleSubtask(taskId, subtaskId);
     return NextResponse.json({ task });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Failed to toggle subtask.",
-        detail: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 },
-    );
+    return errorResponse(error, "Failed to toggle subtask.");
   }
 }
