@@ -1195,9 +1195,19 @@ export default function TaskflowDashboard() {
           {currentUser && !currentUser.telegramChatId ? (
             <div className="workspace-connectCard">
               <span className="workspace-connectTitle">Connect Telegram bot</span>
-              <span className="workspace-connectCode">{currentUser.telegramConnectCode}</span>
+              <span className="workspace-connectCode">
+                {currentUser.telegramConnectCode || "Refresh setelah login ulang"}
+              </span>
               <span className="workspace-connectHelp">
-                Kirim `/connect {currentUser.telegramConnectCode}` ke bot Telegram kamu.
+                Kirim
+                {" "}
+                <strong>
+                  {currentUser.telegramConnectCode
+                    ? `/connect ${currentUser.telegramConnectCode}`
+                    : "/connect KODE_KAMU"}
+                </strong>
+                {" "}
+                ke bot Telegram kamu.
               </span>
             </div>
           ) : null}

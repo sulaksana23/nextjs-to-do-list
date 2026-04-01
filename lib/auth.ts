@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
-import { createTelegramConnectCode } from "./telegram-connect";
+import { createTelegramConnectCode, ensureTelegramConnectCode } from "./telegram-connect";
 import { cleanupLegacyUsers } from "./user-cleanup";
 
 const SESSION_COOKIE = "todo_flow_session";
@@ -176,7 +176,9 @@ export async function getSessionUser() {
     return null;
   }
 
-  return formatSessionUser(user);
+  const userWithConnectCode = await ensureTelegramConnectCode(user.id);
+
+  return formatSessionUser(userWithConnectCode);
 }
 
 export async function requireSessionUser() {
@@ -209,9 +211,10 @@ export async function loginWithTelegramNumber(input: AuthCredentials) {
     throw new Error("Nomor Telegram atau password tidak cocok.");
   }
 
+  const userWithConnectCode = await ensureTelegramConnectCode(user.id);
   await setSessionCookie(user.id);
 
-  return formatSessionUser(user);
+  return formatSessionUser(userWithConnectCode);
 }
 
 export async function registerWithTelegramNumber(input: RegisterInput) {

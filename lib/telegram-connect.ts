@@ -22,6 +22,31 @@ export async function createTelegramConnectCode() {
   throw new Error("Failed to generate Telegram connect code.");
 }
 
+export async function ensureTelegramConnectCode(userId: string) {
+  const user = await prisma.todoUser.findUnique({
+    where: {
+      id: userId,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User tidak ditemukan.");
+  }
+
+  if (user.telegramConnectCode) {
+    return user;
+  }
+
+  return prisma.todoUser.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      telegramConnectCode: await createTelegramConnectCode(),
+    },
+  });
+}
+
 export async function linkTelegramChatByCode(code: string, chatId: string) {
   const normalizedCode = code.trim().toUpperCase();
 
