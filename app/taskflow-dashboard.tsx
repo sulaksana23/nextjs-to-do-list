@@ -1,6 +1,12 @@
 "use client";
 
+import type { ApexOptions } from "apexcharts";
+import dynamic from "next/dynamic";
 import { startTransition, useDeferredValue, useEffect, useId, useState } from "react";
+
+const ApexChart = dynamic(() => import("react-apexcharts"), {
+  ssr: false,
+});
 
 type Priority = "Low" | "Medium" | "High";
 type StatusFilter = "All" | "Open" | "Done";
