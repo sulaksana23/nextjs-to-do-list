@@ -548,6 +548,20 @@ export default function TaskflowDashboard() {
     },
     { label: "Hold", value: holdTasks },
   ];
+  const statusChartSeries = [
+    holdTasks,
+    scopedTasks.filter((task) => task.status === "In Progress").length,
+    doneCount,
+  ];
+  const projectChartSeries = projects.map((project) =>
+    tasks.filter((task) => task.projectId === project.id).length,
+  );
+  const projectChartCategories = projects.map((project) => project.name);
+  const priorityTrendSeries = [
+    scopedTasks.filter((task) => task.priority === "High").length,
+    scopedTasks.filter((task) => task.priority === "Medium").length,
+    scopedTasks.filter((task) => task.priority === "Low").length,
+  ];
 
   function handleDraftChange<Key extends keyof TaskDraft>(
     field: Key,
@@ -1357,6 +1371,54 @@ export default function TaskflowDashboard() {
             </div>
 
             <div className="workspace-homeGrid">
+              <section className="workspace-homePanel workspace-chartPanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Status Pulse</p>
+                    <h3 className="workspace-homePanelTitle">Task composition</h3>
+                  </div>
+                  <span className="workspace-homeMeta">{scopedTasks.length} tracked tasks</span>
+                </div>
+                {scopedTasks.length > 0 ? (
+                  <DashboardDonutChart series={statusChartSeries} />
+                ) : (
+                  <div className="workspace-homeEmpty">Belum ada task untuk divisualisasikan.</div>
+                )}
+              </section>
+
+              <section className="workspace-homePanel workspace-chartPanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Project Load</p>
+                    <h3 className="workspace-homePanelTitle">Tasks by project</h3>
+                  </div>
+                  <span className="workspace-homeMeta">{projects.length} active spaces</span>
+                </div>
+                {projects.length > 0 ? (
+                  <DashboardBarChart
+                    categories={projectChartCategories}
+                    series={projectChartSeries}
+                  />
+                ) : (
+                  <div className="workspace-homeEmpty">Tambahkan project untuk melihat distribusi task.</div>
+                )}
+              </section>
+
+              <section className="workspace-homePanel workspace-chartPanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Priority Mix</p>
+                    <h3 className="workspace-homePanelTitle">Execution pressure</h3>
+                  </div>
+                  <span className="workspace-homeMeta">High to low priority balance</span>
+                </div>
+                {scopedTasks.length > 0 ? (
+                  <DashboardAreaChart series={priorityTrendSeries} />
+                ) : (
+                  <div className="workspace-homeEmpty">Priority chart akan muncul setelah task pertama dibuat.</div>
+                )}
+              </section>
+
               <section className="workspace-homePanel">
                 <div className="workspace-homePanelHeader">
                   <div>
@@ -2545,6 +2607,176 @@ function AuthShell({
         </div>
       </section>
     </main>
+  );
+}
+
+function DashboardDonutChart({ series }: { series: number[] }) {
+  const options: ApexOptions = {
+    chart: {
+      type: "donut",
+      background: "transparent",
+      toolbar: {
+        show: false,
+      },
+    },
+    labels: ["Hold", "In Progress", "Done"],
+    legend: {
+      position: "bottom",
+      labels: {
+        colors: "#acacb4",
+      },
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    stroke: {
+      colors: ["#111113"],
+    },
+    colors: ["#b457de", "#f0b90b", "#2ecb92"],
+    plotOptions: {
+      pie: {
+        donut: {
+          size: "72%",
+        },
+      },
+    },
+    theme: {
+      mode: "dark",
+    },
+  };
+
+  return (
+    <div className="workspace-chartWrap">
+      <ApexChart options={options} series={series} type="donut" height={280} />
+    </div>
+  );
+}
+
+function DashboardBarChart({
+  categories,
+  series,
+}: {
+  categories: string[];
+  series: number[];
+}) {
+  const options: ApexOptions = {
+    chart: {
+      type: "bar",
+      background: "transparent",
+      toolbar: {
+        show: false,
+      },
+    },
+    theme: {
+      mode: "dark",
+    },
+    grid: {
+      borderColor: "rgba(255,255,255,0.08)",
+    },
+    colors: ["#18b67a"],
+    plotOptions: {
+      bar: {
+        borderRadius: 8,
+        columnWidth: "46%",
+      },
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    xaxis: {
+      categories,
+      labels: {
+        style: {
+          colors: "#7a7b84",
+        },
+      },
+    },
+    yaxis: {
+      labels: {
+        style: {
+          colors: "#7a7b84",
+        },
+      },
+    },
+    tooltip: {
+      theme: "dark",
+    },
+  };
+
+  return (
+    <div className="workspace-chartWrap">
+      <ApexChart
+        options={options}
+        series={[{ name: "Tasks", data: series }]}
+        type="bar"
+        height={280}
+      />
+    </div>
+  );
+}
+
+function DashboardAreaChart({ series }: { series: number[] }) {
+  const options: ApexOptions = {
+    chart: {
+      type: "area",
+      background: "transparent",
+      toolbar: {
+        show: false,
+      },
+      zoom: {
+        enabled: false,
+      },
+    },
+    theme: {
+      mode: "dark",
+    },
+    colors: ["#f54291"],
+    stroke: {
+      curve: "smooth",
+      width: 3,
+    },
+    fill: {
+      type: "gradient",
+      gradient: {
+        opacityFrom: 0.45,
+        opacityTo: 0.06,
+      },
+    },
+    grid: {
+      borderColor: "rgba(255,255,255,0.08)",
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    xaxis: {
+      categories: ["High", "Medium", "Low"],
+      labels: {
+        style: {
+          colors: "#7a7b84",
+        },
+      },
+    },
+    yaxis: {
+      labels: {
+        style: {
+          colors: "#7a7b84",
+        },
+      },
+    },
+    tooltip: {
+      theme: "dark",
+    },
+  };
+
+  return (
+    <div className="workspace-chartWrap">
+      <ApexChart
+        options={options}
+        series={[{ name: "Tasks", data: series }]}
+        type="area"
+        height={280}
+      />
+    </div>
   );
 }
 
