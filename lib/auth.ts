@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
+import { createTelegramConnectCode } from "./telegram-connect";
 import { cleanupLegacyUsers } from "./user-cleanup";
 
 const SESSION_COOKIE = "todo_flow_session";
@@ -13,6 +14,7 @@ export type SessionUser = {
   color: string;
   telegramNumber: string;
   telegramChatId: string;
+  telegramConnectCode: string;
 };
 
 export type AuthCredentials = {
@@ -41,6 +43,7 @@ function formatSessionUser(user: {
   color: string;
   telegramNumber: string | null;
   telegramChatId: string | null;
+  telegramConnectCode: string | null;
 }): SessionUser {
   return {
     id: user.id,
@@ -49,6 +52,7 @@ function formatSessionUser(user: {
     color: user.color,
     telegramNumber: user.telegramNumber ?? "",
     telegramChatId: user.telegramChatId ?? "",
+    telegramConnectCode: user.telegramConnectCode ?? "",
   };
 }
 
@@ -247,6 +251,7 @@ export async function registerWithTelegramNumber(input: RegisterInput) {
       color: resolveUserColor(name, input.color),
       telegramNumber,
       telegramChatId,
+      telegramConnectCode: await createTelegramConnectCode(),
       passwordHash: hashPassword(password),
     },
   });

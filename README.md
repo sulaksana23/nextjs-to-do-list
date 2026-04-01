@@ -152,6 +152,26 @@ Catatan:
 - setelah update schema, deploy akan menjalankan migration otomatis dari script build
 - advisory lock Prisma dimatikan saat build supaya `prisma migrate deploy` tidak timeout pada koneksi Neon pooler di Vercel
 
+## Koneksi Bot Telegram
+
+Supaya notif assignment masuk ke Telegram:
+
+1. Login ke aplikasi
+2. Salin `Telegram connect code` milik user
+3. Chat ke bot kamu dengan format:
+
+```text
+/connect KODE_KAMU
+```
+
+4. Pastikan webhook bot diarahkan ke:
+
+```text
+https://your-domain.vercel.app/api/telegram/webhook
+```
+
+Setelah bot membalas berhasil terhubung, assignment task dan subtask ke user itu akan mengirim notifikasi otomatis.
+
 ## Menjalankan Project
 
 Jalankan development server:

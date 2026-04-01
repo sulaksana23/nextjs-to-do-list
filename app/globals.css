@@ -311,6 +311,36 @@ a {
   font-size: 0.72rem;
 }
 
+.workspace-connectCard {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem;
+  margin-bottom: 0.55rem;
+  border: 1px dashed rgba(24, 182, 122, 0.35);
+  border-radius: 0.8rem;
+  background: rgba(24, 182, 122, 0.06);
+}
+
+.workspace-connectTitle {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.workspace-connectCode {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #93ffd8;
+}
+
+.workspace-connectHelp {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .workspace-statLine {
   display: flex;
   align-items: center;

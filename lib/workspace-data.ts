@@ -1,6 +1,7 @@
 import { Prisma, TodoTaskPriority, TodoTaskStatus } from "@prisma/client";
 import { hashPassword, normalizeTelegramNumber } from "./auth";
 import { prisma } from "./prisma";
+import { createTelegramConnectCode } from "./telegram-connect";
 import { sendTelegramMessage } from "./telegram";
 import { cleanupLegacyUsers } from "./user-cleanup";
 
@@ -11,6 +12,7 @@ export type WorkspaceUser = {
   tone: string;
   telegramNumber: string;
   telegramChatId: string;
+  telegramConnected: boolean;
   hasPassword: boolean;
 };
 
@@ -170,6 +172,7 @@ function mapUser(user: {
   color: string;
   telegramNumber: string | null;
   telegramChatId: string | null;
+  telegramConnectCode: string | null;
   passwordHash: string | null;
 }): WorkspaceUser {
   return {
@@ -179,6 +182,7 @@ function mapUser(user: {
     tone: user.color,
     telegramNumber: user.telegramNumber ?? "",
     telegramChatId: user.telegramChatId ?? "",
+    telegramConnected: Boolean(user.telegramChatId),
     hasPassword: Boolean(user.passwordHash),
   };
 }
@@ -601,6 +605,7 @@ export async function createUser(input: UserInput) {
       color: resolveUserColor(name, input.color),
       telegramNumber,
       telegramChatId,
+      telegramConnectCode: await createTelegramConnectCode(),
       passwordHash: password ? hashPassword(password) : null,
     },
   });

@@ -26,6 +26,7 @@ model TodoUser {
   color            String
   telegramNumber   String?       @unique
   telegramChatId   String?
+  telegramConnectCode String?    @unique
   passwordHash     String?
   tasks            TodoTask[]
   assignedSubtasks TodoSubtask[] @relation("TodoSubtaskAssignee")

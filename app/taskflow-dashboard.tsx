@@ -14,6 +14,7 @@ type WorkspaceUser = {
   tone: string;
   telegramNumber: string;
   telegramChatId: string;
+  telegramConnected: boolean;
   hasPassword: boolean;
 };
 
@@ -86,6 +87,7 @@ type SessionUser = {
   color: string;
   telegramNumber: string;
   telegramChatId: string;
+  telegramConnectCode: string;
 };
 
 type WorkspaceResponse = {
@@ -184,6 +186,7 @@ function normalizeUsers(value: unknown): WorkspaceUser[] {
         telegramChatId:
           typeof user.telegramChatId === "string" ? user.telegramChatId : "",
         hasPassword: Boolean(user.hasPassword),
+        telegramConnected: Boolean(user.telegramConnected),
       };
     })
     .filter((item): item is WorkspaceUser => item !== null);
@@ -333,6 +336,8 @@ function normalizeSessionUser(value: unknown): SessionUser | null {
     color: typeof user.color === "string" ? user.color : "teal",
     telegramNumber: typeof user.telegramNumber === "string" ? user.telegramNumber : "",
     telegramChatId: typeof user.telegramChatId === "string" ? user.telegramChatId : "",
+    telegramConnectCode:
+      typeof user.telegramConnectCode === "string" ? user.telegramConnectCode : "",
   };
 }
 
@@ -444,6 +449,7 @@ export default function TaskflowDashboard() {
           tone: currentUser.color,
           telegramNumber: currentUser.telegramNumber,
           telegramChatId: currentUser.telegramChatId,
+          telegramConnected: Boolean(currentUser.telegramChatId),
           hasPassword: true,
         }
       : null);
@@ -1180,7 +1186,19 @@ export default function TaskflowDashboard() {
               <div className="workspace-sessionMeta">
                 <span>{currentWorkspaceUser.name}</span>
                 <span>{currentWorkspaceUser.telegramNumber || "No Telegram number"}</span>
+                <span>
+                  Telegram: {currentWorkspaceUser.telegramConnected ? "Connected" : "Not connected"}
+                </span>
               </div>
+            </div>
+          ) : null}
+          {currentUser && !currentUser.telegramChatId ? (
+            <div className="workspace-connectCard">
+              <span className="workspace-connectTitle">Connect Telegram bot</span>
+              <span className="workspace-connectCode">{currentUser.telegramConnectCode}</span>
+              <span className="workspace-connectHelp">
+                Kirim `/connect {currentUser.telegramConnectCode}` ke bot Telegram kamu.
+              </span>
             </div>
           ) : null}
           <div className="workspace-statLine">
@@ -1816,7 +1834,8 @@ export default function TaskflowDashboard() {
                           {assignedSubtasks} subtasks
                         </p>
                         <p className="workspace-homeItemMeta">
-                          Chat ID: {user.telegramChatId || "Belum diisi"} • Login:{" "}
+                          Telegram: {user.telegramConnected ? "Connected" : "Not connected"} • Chat ID:{" "}
+                          {user.telegramChatId || "Belum diisi"} • Login:{" "}
                           {user.hasPassword ? "Ready" : "Belum diset"}
                         </p>
                       </div>
