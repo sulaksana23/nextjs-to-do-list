@@ -136,7 +136,7 @@ Contoh kalau ingin tetap memakai schema `todo_app`:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=todo_app&sslmode=require"
 ```
 
-Kalau `DATABASE_URL` di Vercel tidak menyertakan `schema=todo_app`, Prisma akan default ke schema `public`.
+Project ini juga menambahkan fallback di runtime Prisma: kalau `DATABASE_URL` tidak menyertakan parameter `schema`, aplikasi akan otomatis memakai schema `todo_app`.
 
 ## Menjalankan Project
 
