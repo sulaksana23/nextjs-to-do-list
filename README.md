@@ -116,6 +116,28 @@ Kalau sedang development dan ingin membuat migration baru:
 npx prisma migrate dev --name your_change_name
 ```
 
+## Deploy Ke Vercel
+
+Saat deploy, project ini sekarang otomatis menjalankan:
+
+```bash
+prisma generate && prisma migrate deploy && next build --webpack
+```
+
+Supaya deploy berhasil, pastikan `DATABASE_URL` di Vercel:
+
+- mengarah ke database production yang benar
+- memakai schema yang benar bila kamu tidak ingin pakai `public`
+- bisa diakses dari Vercel
+
+Contoh kalau ingin tetap memakai schema `todo_app`:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=todo_app&sslmode=require"
+```
+
+Kalau `DATABASE_URL` di Vercel tidak menyertakan `schema=todo_app`, Prisma akan default ke schema `public`.
+
 ## Menjalankan Project
 
 Jalankan development server:
