@@ -1,0 +1,75 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" rx="28" fill="#0D0D0F"/>
+  <rect x="24" y="24" width="1232" height="672" rx="24" fill="#111113" stroke="rgba(255,255,255,0.08)"/>
+  <rect x="48" y="48" width="52" height="624" rx="18" fill="#151519"/>
+  <rect x="116" y="48" width="236" height="624" rx="18" fill="#171719"/>
+  <rect x="368" y="48" width="864" height="72" rx="18" fill="#111113" stroke="rgba(255,255,255,0.08)"/>
+  <rect x="368" y="136" width="864" height="52" rx="16" fill="#111113" stroke="rgba(255,255,255,0.08)"/>
+  <rect x="368" y="204" width="864" height="444" rx="18" fill="#111113" stroke="rgba(255,255,255,0.08)"/>
+
+  <rect x="72" y="74" width="32" height="32" rx="12" fill="#F54291" fill-opacity="0.16"/>
+  <rect x="72" y="122" width="32" height="32" rx="12" fill="#FFFFFF" fill-opacity="0.05"/>
+  <rect x="72" y="170" width="32" height="32" rx="12" fill="#FFFFFF" fill-opacity="0.05"/>
+  <rect x="72" y="218" width="32" height="32" rx="12" fill="#FFFFFF" fill-opacity="0.05"/>
+
+  <circle cx="146" cy="84" r="16" fill="#18B67A"/>
+  <text x="178" y="83" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="26" font-weight="700">Todo Flow</text>
+  <text x="178" y="108" fill="#7A7B84" font-family="Arial, sans-serif" font-size="16">Project workspace</text>
+
+  <rect x="128" y="144" width="212" height="42" rx="12" fill="#F54291" fill-opacity="0.12"/>
+  <text x="158" y="171" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="18">Home</text>
+
+  <text x="158" y="224" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">Inbox</text>
+  <text x="158" y="270" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">My Tasks</text>
+  <text x="158" y="316" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">Assigned</text>
+
+  <text x="128" y="390" fill="#7A7B84" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2">SPACES</text>
+  <rect x="128" y="410" width="212" height="42" rx="12" fill="#F54291" fill-opacity="0.12"/>
+  <text x="152" y="437" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="18">PR</text>
+  <text x="320" y="437" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">4</text>
+  <text x="152" y="485" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">Budgeting</text>
+  <text x="300" y="485" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">2</text>
+  <text x="152" y="531" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">Portal Supplier</text>
+  <text x="300" y="531" fill="#ACACB4" font-family="Arial, sans-serif" font-size="18">1</text>
+
+  <text x="392" y="84" fill="#7A7B84" font-family="Arial, sans-serif" font-size="14">IT / HO Software Development / PR</text>
+  <text x="392" y="108" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="34" font-weight="700">PR workspace</text>
+
+  <rect x="974" y="68" width="178" height="34" rx="12" fill="#1A1A1D" stroke="rgba(255,255,255,0.08)"/>
+  <text x="996" y="90" fill="#7A7B84" font-family="Arial, sans-serif" font-size="16">Search task...</text>
+
+  <rect x="1168" y="68" width="40" height="34" rx="12" fill="#F54291"/>
+  <text x="1179" y="90" fill="white" font-family="Arial, sans-serif" font-size="18" font-weight="700">+</text>
+
+  <rect x="392" y="150" width="66" height="24" rx="12" fill="#FFFFFF" fill-opacity="0.04"/>
+  <text x="414" y="166" fill="#ACACB4" font-family="Arial, sans-serif" font-size="14">Board</text>
+  <rect x="468" y="150" width="56" height="24" rx="12" fill="#FFFFFF" fill-opacity="0.08"/>
+  <text x="488" y="166" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="14">List</text>
+  <text x="540" y="166" fill="#7A7B84" font-family="Arial, sans-serif" font-size="14">+ View</text>
+
+  <rect x="392" y="220" width="104" height="26" rx="13" fill="#B457DE" fill-opacity="0.22"/>
+  <text x="414" y="238" fill="#F1A8FF" font-family="Arial, sans-serif" font-size="14" font-weight="700">HOLD</text>
+
+  <rect x="392" y="268" width="816" height="62" rx="0" fill="transparent"/>
+  <text x="414" y="294" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="20" font-weight="700">Integrasi PR dengan Budgeting</text>
+  <text x="414" y="316" fill="#7A7B84" font-family="Arial, sans-serif" font-size="15">PR • finalisasi mapping transaksi dan approval flow</text>
+  <circle cx="912" cy="298" r="15" fill="#08A38F"/>
+  <text x="904" y="303" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="700">BY</text>
+  <text x="1032" y="303" fill="#ACACB4" font-family="Arial, sans-serif" font-size="16">High</text>
+  <text x="1120" y="303" fill="#ACACB4" font-family="Arial, sans-serif" font-size="16">Apr 7</text>
+
+  <rect x="392" y="362" width="178" height="26" rx="13" fill="#FFC107" fill-opacity="0.16"/>
+  <text x="414" y="380" fill="#FFD44D" font-family="Arial, sans-serif" font-size="14" font-weight="700">IN PROGRESS</text>
+
+  <text x="414" y="438" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="20" font-weight="700">Compact project sidebar CRUD</text>
+  <text x="414" y="460" fill="#7A7B84" font-family="Arial, sans-serif" font-size="15">PR • modal project, filter task per project, Prisma-backed API</text>
+  <circle cx="912" cy="442" r="15" fill="#2D7FF9"/>
+  <text x="904" y="447" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="700">DS</text>
+  <text x="1032" y="447" fill="#ACACB4" font-family="Arial, sans-serif" font-size="16">Medium</text>
+  <text x="1120" y="447" fill="#ACACB4" font-family="Arial, sans-serif" font-size="16">Apr 10</text>
+
+  <rect x="392" y="504" width="86" height="26" rx="13" fill="#32CD99" fill-opacity="0.18"/>
+  <text x="414" y="522" fill="#75F2C9" font-family="Arial, sans-serif" font-size="14" font-weight="700">DONE</text>
+  <text x="414" y="576" fill="#F3F3F4" font-family="Arial, sans-serif" font-size="20" font-weight="700">Readme and setup polished</text>
+  <text x="414" y="598" fill="#7A7B84" font-family="Arial, sans-serif" font-size="15">Project docs, migration flow, API references, and sample data</text>
+</svg>

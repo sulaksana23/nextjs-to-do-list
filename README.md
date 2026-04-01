@@ -1,36 +1,294 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Todo Flow
 
-## Getting Started
+Todo workspace bergaya dark productivity app dengan Next.js App Router, Prisma, PostgreSQL, task modal, subtask, assignment user, dan CRUD project langsung dari sidebar.
 
-First, run the development server:
+![Todo Flow Preview](./public/readme-preview.svg)
+
+## Overview
+
+Project ini dibuat untuk pengalaman mirip workspace app seperti ClickUp:
+
+- sidebar kiri untuk navigasi workspace dan daftar project
+- task list per status: `Hold`, `In Progress`, `Done`
+- create, edit, delete task lewat modal
+- assignee per task
+- subtask per task
+- project sidebar yang pakai data database asli
+- CRUD project langsung dari sidebar
+- dark UI yang compact dan full width
+
+## Fitur
+
+- Dashboard workspace dengan beberapa view: `Home`, `Dashboard`, `Inbox`, `My Tasks`, `Replies`, `Assigned`
+- Product section: `Docs`, `Forms`, `Whiteboards`, `Goals`, `Timesheet`
+- Task CRUD
+- Project CRUD
+- Filter task berdasarkan project aktif di sidebar
+- Search task berdasarkan title, description, assignee, subtask, dan project
+- Sort task: `Newest`, `Oldest`, `Priority`, `Due soon`
+- Toggle subtask selesai/belum selesai
+- Group collapse untuk status task
+- API internal berbasis Route Handlers
+- Prisma schema + migration
+
+## Tech Stack
+
+- Next.js 16 App Router
+- React 19
+- Tailwind CSS 4
+- Prisma 6
+- PostgreSQL
+
+## Struktur Penting
+
+- [app/page.tsx](/home/bayu/todo-app/app/page.tsx)
+  Entry page utama
+- [app/taskflow-dashboard.tsx](/home/bayu/todo-app/app/taskflow-dashboard.tsx)
+  Komponen client utama untuk seluruh workspace UI
+- [app/globals.css](/home/bayu/todo-app/app/globals.css)
+  Styling dark compact workspace
+- [app/api/workspace/route.ts](/home/bayu/todo-app/app/api/workspace/route.ts)
+  `GET` workspace dan `POST` create task
+- [app/api/workspace/tasks/[taskId]/route.ts](/home/bayu/todo-app/app/api/workspace/tasks/[taskId]/route.ts)
+  `PATCH` update task dan `DELETE` hapus task
+- [app/api/workspace/tasks/[taskId]/subtasks/[subtaskId]/route.ts](/home/bayu/todo-app/app/api/workspace/tasks/[taskId]/subtasks/[subtaskId]/route.ts)
+  Toggle status subtask
+- [app/api/workspace/projects/route.ts](/home/bayu/todo-app/app/api/workspace/projects/route.ts)
+  Create project
+- [app/api/workspace/projects/[projectId]/route.ts](/home/bayu/todo-app/app/api/workspace/projects/[projectId]/route.ts)
+  Update dan delete project
+- [lib/workspace-data.ts](/home/bayu/todo-app/lib/workspace-data.ts)
+  Seluruh query dan mutation Prisma untuk workspace
+- [lib/prisma.ts](/home/bayu/todo-app/lib/prisma.ts)
+  Prisma singleton client
+- [prisma/schema.prisma](/home/bayu/todo-app/prisma/schema.prisma)
+  Schema database utama
+- [prisma/migrations/20260401153000_todo_workspace_init/migration.sql](/home/bayu/todo-app/prisma/migrations/20260401153000_todo_workspace_init/migration.sql)
+  Migration awal
+- [prisma/migrations/20260401173000_add_projects/migration.sql](/home/bayu/todo-app/prisma/migrations/20260401173000_add_projects/migration.sql)
+  Migration penambahan tabel project dan relasi task
+
+## Database
+
+Project ini memakai PostgreSQL. Contoh `.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:123456@localhost:5433/next_auth_app?schema=todo_app"
+```
+
+Catatan:
+
+- `schema=todo_app` dipakai supaya tidak bentrok dengan tabel project lain di database yang sama
+- kalau PostgreSQL kamu jalan di port lain, ganti `5433`
+- kalau database belum ada, buat dulu database targetnya
+
+## Installation
+
+Install dependency:
+
+```bash
+npm install
+```
+
+Generate Prisma client:
+
+```bash
+npx prisma generate
+```
+
+## Migration
+
+Validasi schema Prisma:
+
+```bash
+npx prisma validate
+```
+
+Apply migration ke database:
+
+```bash
+npx prisma migrate deploy
+```
+
+Kalau sedang development dan ingin membuat migration baru:
+
+```bash
+npx prisma migrate dev --name your_change_name
+```
+
+## Menjalankan Project
+
+Jalankan development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka di browser:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Data Model
 
-## Learn More
+Model utama:
 
-To learn more about Next.js, take a look at the following resources:
+- `TodoUser`
+- `TodoProject`
+- `TodoTask`
+- `TodoSubtask`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Enum utama:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `TodoTaskPriority`
+- `TodoTaskStatus`
 
-## Deploy on Vercel
+Relasi penting:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- satu `TodoProject` punya banyak `TodoTask`
+- satu `TodoUser` bisa punya banyak `TodoTask`
+- satu `TodoTask` punya banyak `TodoSubtask`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Flow Data
+
+1. UI load data dari `GET /api/workspace`
+2. Server ambil user, project, dan task dari Prisma
+3. Sidebar `Spaces` dirender dari tabel `todo_projects`
+4. Task list otomatis terfilter berdasarkan project aktif
+5. Create/update/delete task dan project dikirim lewat API route internal
+
+## API
+
+### Workspace
+
+`GET /api/workspace`
+
+Response:
+
+```json
+{
+  "users": [],
+  "projects": [],
+  "tasks": []
+}
+```
+
+### Create Task
+
+`POST /api/workspace`
+
+Body:
+
+```json
+{
+  "title": "Integrasi PR dengan Budgeting",
+  "description": "Finalisasi mapping transaksi dan approval flow",
+  "dueDate": "2026-04-10",
+  "priority": "High",
+  "projectId": "project_xxx",
+  "assigneeId": "user_bayu",
+  "status": "In Progress",
+  "subtasks": [
+    {
+      "id": "temp-1",
+      "title": "Review API contract",
+      "completed": false
+    }
+  ]
+}
+```
+
+### Update Task
+
+`PATCH /api/workspace/tasks/:taskId`
+
+Body sama seperti create task.
+
+### Delete Task
+
+`DELETE /api/workspace/tasks/:taskId`
+
+### Toggle Subtask
+
+`PATCH /api/workspace/tasks/:taskId/subtasks/:subtaskId`
+
+### Create Project
+
+`POST /api/workspace/projects`
+
+Body:
+
+```json
+{
+  "name": "PR"
+}
+```
+
+### Update Project
+
+`PATCH /api/workspace/projects/:projectId`
+
+Body:
+
+```json
+{
+  "name": "PR"
+}
+```
+
+### Delete Project
+
+`DELETE /api/workspace/projects/:projectId`
+
+Catatan:
+
+- project hanya bisa dihapus kalau belum punya task
+- kalau masih ada task, API akan mengembalikan error aman
+
+## Seed / Sample Data
+
+Migration awal mengisi sample data:
+
+- beberapa user seperti `Bayu`, `Dimas`, `Livia`
+- beberapa task awal
+- beberapa subtask awal
+
+Migration project akan mengubah kategori task lama menjadi project nyata di tabel `todo_projects`.
+
+## Verifikasi
+
+Perintah yang aman dijalankan setelah setup:
+
+```bash
+npm run lint
+```
+
+```bash
+npx prisma validate
+```
+
+```bash
+npx prisma generate
+```
+
+## Catatan Penggunaan
+
+- kalau database mati, UI tetap bisa terbuka tetapi data API akan gagal dimuat
+- modal task sekarang memakai field `Task Name` yang jelas
+- sidebar `Spaces` sekarang tidak lagi hardcoded, tapi pakai data project asli
+- task form sekarang memilih project dari database, bukan mengetik category manual
+
+## Roadmap Lanjutan
+
+- auth dan permission user
+- drag and drop task antar status
+- inline editing row
+- dashboard chart yang real
+- activity log / comments
+- server actions untuk mutation
+- optimistic update yang lebih halus
+
+## License
+
+Internal project / workspace app.
