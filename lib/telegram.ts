@@ -10,8 +10,12 @@ function getTelegramBotToken() {
 export async function sendTelegramMessage(chatId: string, text: string) {
   const token = getTelegramBotToken();
 
-  if (!token || !chatId.trim()) {
-    return;
+  if (!token) {
+    throw new Error("TELEGRAM_BOT_TOKEN belum diset di environment.");
+  }
+
+  if (!chatId.trim()) {
+    throw new Error("Telegram chat id belum tersedia untuk user ini.");
   }
 
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

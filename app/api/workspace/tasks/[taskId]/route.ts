@@ -14,8 +14,8 @@ export async function PATCH(request: Request, context: Context) {
     await requireSessionUser();
     const { taskId } = await context.params;
     const payload = (await request.json()) as TaskInput;
-    const task = await updateTask(taskId, payload);
-    return NextResponse.json({ task });
+    const result = await updateTask(taskId, payload);
+    return NextResponse.json(result);
   } catch (error) {
     return errorResponse(error, "Failed to update task.");
   }

@@ -53,6 +53,11 @@ export type WorkspacePayload = {
   tasks: WorkspaceTask[];
 };
 
+export type TaskMutationResult = {
+  task: WorkspaceTask;
+  notificationWarning?: string;
+};
+
 export type TaskInput = {
   title: string;
   description: string;
@@ -290,8 +295,12 @@ async function notifyTaskAssignmentSafely(
 ) {
   try {
     await notifyTaskAssignment(task, actionLabel);
+    return undefined;
   } catch (error) {
     console.error("Failed to send Telegram notification:", error);
+    return error instanceof Error
+      ? error.message
+      : "Failed to send Telegram notification.";
   }
 }
 
@@ -341,7 +350,7 @@ export async function getWorkspaceData(): Promise<WorkspacePayload> {
   };
 }
 
-export async function createTask(input: TaskInput) {
+export async function createTask(input: TaskInput): Promise<TaskMutationResult> {
   const project = await prisma.todoProject.findUniqueOrThrow({
     where: {
       id: input.projectId,
@@ -370,12 +379,15 @@ export async function createTask(input: TaskInput) {
     include: workspaceInclude,
   });
 
-  void notifyTaskAssignmentSafely(task, "created");
+  const notificationWarning = await notifyTaskAssignmentSafely(task, "created");
 
-  return mapTask(task);
+  return {
+    task: mapTask(task),
+    notificationWarning,
+  };
 }
 
-export async function updateTask(taskId: string, input: TaskInput) {
+export async function updateTask(taskId: string, input: TaskInput): Promise<TaskMutationResult> {
   const project = await prisma.todoProject.findUniqueOrThrow({
     where: {
       id: input.projectId,
@@ -413,9 +425,12 @@ export async function updateTask(taskId: string, input: TaskInput) {
     include: workspaceInclude,
   });
 
-  void notifyTaskAssignmentSafely(task, "updated");
+  const notificationWarning = await notifyTaskAssignmentSafely(task, "updated");
 
-  return mapTask(task);
+  return {
+    task: mapTask(task),
+    notificationWarning,
+  };
 }
 
 export async function deleteTask(taskId: string) {

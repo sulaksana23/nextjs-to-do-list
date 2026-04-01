@@ -659,7 +659,12 @@ export default function TaskflowDashboard() {
         },
       );
 
-      const data = (await response.json()) as { task?: Task; error?: string; detail?: string };
+      const data = (await response.json()) as {
+        task?: Task;
+        error?: string;
+        detail?: string;
+        notificationWarning?: string;
+      };
 
       if (!response.ok || !data.task) {
         throw new Error(data.detail || data.error || "Failed to save task.");
@@ -676,6 +681,11 @@ export default function TaskflowDashboard() {
           ? current.map((item) => (item.id === editingTaskId ? task : item))
           : [task, ...current],
       );
+
+      if (data.notificationWarning) {
+        setRequestError(`Task tersimpan, tapi notif Telegram gagal: ${data.notificationWarning}`);
+        return;
+      }
 
       resetDraft();
     } catch (error) {

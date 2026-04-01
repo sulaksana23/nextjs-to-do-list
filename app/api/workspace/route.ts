@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   try {
     await requireSessionUser();
     const payload = (await request.json()) as TaskInput;
-    const task = await createTask(payload);
-    return NextResponse.json({ task });
+    const result = await createTask(payload);
+    return NextResponse.json(result);
   } catch (error) {
     return errorResponse(error, "Failed to create task.");
   }
