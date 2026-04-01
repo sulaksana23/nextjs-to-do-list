@@ -246,16 +246,27 @@ async function notifyTaskAssignment(
   actionLabel: "created" | "updated",
 ) {
   const taskAssignee = task.assignee;
+  const dueDateLabel = task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "-";
+  const actionLabelText = actionLabel === "created" ? "New Assignment" : "Assignment Updated";
+  const statusLabel = fromStatus(task.status);
+  const priorityLabel = fromPriority(task.priority);
 
   if (taskAssignee?.telegramChatId) {
     await sendTelegramMessage(
       taskAssignee.telegramChatId,
       [
-        `Task ${actionLabel}: ${task.title}`,
+        `Todo Flow | ${actionLabelText}`,
+        "",
+        `You have been assigned a task.`,
+        `Task: ${task.title}`,
         `Project: ${task.project.name}`,
-        `Status: ${fromStatus(task.status)}`,
-        `Priority: ${fromPriority(task.priority)}`,
-        task.dueDate ? `Due: ${task.dueDate.toISOString().slice(0, 10)}` : "Due: -",
+        `Status: ${statusLabel}`,
+        `Priority: ${priorityLabel}`,
+        `Due Date: ${dueDateLabel}`,
+        "",
+        task.description ? `Description: ${task.description}` : "Description: -",
+        "",
+        "Please review the task in Todo Flow.",
       ].join("\n"),
     );
   }
@@ -278,10 +289,17 @@ async function notifyTaskAssignment(
     await sendTelegramMessage(
       subtask.assignee.telegramChatId,
       [
-        `Subtask ${actionLabel}: ${subtask.title}`,
-        `Task: ${task.title}`,
+        `Todo Flow | ${actionLabelText}`,
+        "",
+        `You have been assigned a subtask.`,
+        `Subtask: ${subtask.title}`,
+        `Parent Task: ${task.title}`,
         `Project: ${task.project.name}`,
-        `Assigned to: ${subtask.assignee.name}`,
+        `Status: ${statusLabel}`,
+        `Priority: ${priorityLabel}`,
+        `Due Date: ${dueDateLabel}`,
+        "",
+        "Please review the task in Todo Flow.",
       ].join("\n"),
     );
   }
