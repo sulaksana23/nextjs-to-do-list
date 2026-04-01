@@ -418,9 +418,9 @@ export default function TaskflowDashboard() {
       setDraft((current) => ({
         ...current,
         projectId: current.projectId || nextProjects[0]?.id || "",
-        assigneeId: current.assigneeId || nextUsers[0]?.id || "",
+        assigneeId: current.assigneeId || nextCurrentUser?.id || nextUsers[0]?.id || "",
       }));
-      setSubtaskAssigneeId((current) => current || nextUsers[0]?.id || "");
+      setSubtaskAssigneeId((current) => current || nextCurrentUser?.id || nextUsers[0]?.id || "");
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "Failed to load workspace.");
     } finally {

@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
+import { cleanupLegacyUsers } from "./user-cleanup";
 
 const SESSION_COOKIE = "todo_flow_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
@@ -185,6 +186,8 @@ export async function requireSessionUser() {
 }
 
 export async function loginWithTelegramNumber(input: AuthCredentials) {
+  await cleanupLegacyUsers();
+
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
   const password = input.password.trim();
 
@@ -208,6 +211,8 @@ export async function loginWithTelegramNumber(input: AuthCredentials) {
 }
 
 export async function registerWithTelegramNumber(input: RegisterInput) {
+  await cleanupLegacyUsers();
+
   const name = input.name.trim();
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
   const password = input.password.trim();

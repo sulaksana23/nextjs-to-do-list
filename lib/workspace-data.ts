@@ -2,6 +2,7 @@ import { Prisma, TodoTaskPriority, TodoTaskStatus } from "@prisma/client";
 import { hashPassword, normalizeTelegramNumber } from "./auth";
 import { prisma } from "./prisma";
 import { sendTelegramMessage } from "./telegram";
+import { cleanupLegacyUsers } from "./user-cleanup";
 
 export type WorkspaceUser = {
   id: string;
@@ -291,8 +292,15 @@ async function notifyTaskAssignmentSafely(
 }
 
 export async function getWorkspaceData(): Promise<WorkspacePayload> {
+  await cleanupLegacyUsers();
+
   const [users, projects, tasks] = await Promise.all([
     prisma.todoUser.findMany({
+      where: {
+        telegramNumber: {
+          not: null,
+        },
+      },
       orderBy: {
         name: "asc",
       },
@@ -561,6 +569,8 @@ export async function deleteProject(projectId: string) {
 }
 
 export async function createUser(input: UserInput) {
+  await cleanupLegacyUsers();
+
   const name = input.name.trim();
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
   const telegramChatId = input.telegramChatId?.trim() || null;
@@ -599,6 +609,8 @@ export async function createUser(input: UserInput) {
 }
 
 export async function updateUser(userId: string, input: UserInput) {
+  await cleanupLegacyUsers();
+
   const current = await prisma.todoUser.findUniqueOrThrow({
     where: {
       id: userId,
