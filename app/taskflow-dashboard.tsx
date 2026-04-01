@@ -2372,63 +2372,132 @@ function AuthShell({
   return (
     <main className="auth-shell">
       <section className="auth-panel">
-        <p className="workspace-sectionEyebrow">Telegram Workspace</p>
-        <h1 className="auth-title">Login atau register dengan nomor Telegram.</h1>
-        <p className="auth-copy">
-          Setelah user punya `telegramChatId`, assignment task dan subtask akan bisa dikirim ke
-          Telegram lewat bot.
-        </p>
+        <div className="auth-showcase">
+          <div className="auth-badge">Todo Flow</div>
+          <p className="workspace-sectionEyebrow">Telegram-Ready Workspace</p>
+          <h1 className="auth-title">Akses workspace dengan identitas Telegram yang rapi dan aman.</h1>
+          <p className="auth-copy">
+            User bisa login memakai nomor Telegram, lalu assignment task dan subtask akan siap
+            diarahkan ke Telegram begitu `chat id` user terhubung.
+          </p>
 
-        <form className="auth-form" onSubmit={onSubmit}>
-          {!isLoginMode ? (
-            <input
-              value={authForm.name}
-              onChange={(event) => onChange("name", event.target.value)}
-              placeholder="Full name"
-              className="workspace-input auth-input"
-            />
-          ) : null}
+          <div className="auth-featureList">
+            <div className="auth-featureCard">
+              <span className="auth-featureLabel">Account Access</span>
+              <strong>Login berbasis nomor Telegram</strong>
+              <p>Password tetap dipakai agar akses internal lebih aman.</p>
+            </div>
+            <div className="auth-featureCard">
+              <span className="auth-featureLabel">Assignment Flow</span>
+              <strong>Task dan subtask langsung terhubung</strong>
+              <p>Siap dipakai untuk notifikasi Telegram per user yang di-assign.</p>
+            </div>
+          </div>
+        </div>
 
-          <input
-            value={authForm.telegramNumber}
-            onChange={(event) => onChange("telegramNumber", event.target.value)}
-            placeholder="+628123456789"
-            className="workspace-input auth-input"
-          />
+        <div className="auth-card">
+          <div className="auth-cardHeader">
+            <div>
+              <p className="workspace-sectionEyebrow">{isLoginMode ? "Sign In" : "Create Account"}</p>
+              <h2 className="auth-cardTitle">
+                {isLoginMode ? "Welcome back" : "Register your team access"}
+              </h2>
+            </div>
 
-          {!isLoginMode ? (
-            <input
-              value={authForm.telegramChatId}
-              onChange={(event) => onChange("telegramChatId", event.target.value)}
-              placeholder="Optional Telegram chat id"
-              className="workspace-input auth-input"
-            />
-          ) : null}
+            <div className="auth-switch" role="tablist" aria-label="Authentication mode">
+              <button
+                type="button"
+                className={isLoginMode ? "auth-switchButton active" : "auth-switchButton"}
+                onClick={() => {
+                  if (!isLoginMode) {
+                    onToggleMode();
+                  }
+                }}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                className={!isLoginMode ? "auth-switchButton active" : "auth-switchButton"}
+                onClick={() => {
+                  if (isLoginMode) {
+                    onToggleMode();
+                  }
+                }}
+              >
+                Register
+              </button>
+            </div>
+          </div>
 
-          <input
-            type="password"
-            value={authForm.password}
-            onChange={(event) => onChange("password", event.target.value)}
-            placeholder="Password"
-            className="workspace-input auth-input"
-          />
+          <form className="auth-form" onSubmit={onSubmit}>
+            {!isLoginMode ? (
+              <label className="auth-field">
+                <span className="auth-label">Full Name</span>
+                <input
+                  value={authForm.name}
+                  onChange={(event) => onChange("name", event.target.value)}
+                  placeholder="Bayu Pratama"
+                  className="workspace-input auth-input"
+                />
+              </label>
+            ) : null}
 
-          {authError ? <p className="workspace-validation">{authError}</p> : null}
+            <label className="auth-field">
+              <span className="auth-label">Telegram Number</span>
+              <input
+                value={authForm.telegramNumber}
+                onChange={(event) => onChange("telegramNumber", event.target.value)}
+                placeholder="+628123456789"
+                className="workspace-input auth-input"
+              />
+            </label>
 
-          <button type="submit" className="workspace-primaryButton auth-submit" disabled={isAuthenticating}>
-            {isAuthenticating
-              ? "Please wait..."
-              : isLoginMode
-                ? "Login"
-                : "Register"}
-          </button>
-        </form>
+            {!isLoginMode ? (
+              <label className="auth-field">
+                <span className="auth-label">Telegram Chat ID</span>
+                <input
+                  value={authForm.telegramChatId}
+                  onChange={(event) => onChange("telegramChatId", event.target.value)}
+                  placeholder="Optional, isi jika sudah tahu"
+                  className="workspace-input auth-input"
+                />
+              </label>
+            ) : null}
 
-        <button type="button" className="workspace-ghostButton auth-toggle" onClick={onToggleMode}>
-          {isLoginMode
-            ? "Belum punya akun? Register dengan nomor Telegram"
-            : "Sudah punya akun? Login di sini"}
-        </button>
+            <label className="auth-field">
+              <span className="auth-label">Password</span>
+              <input
+                type="password"
+                value={authForm.password}
+                onChange={(event) => onChange("password", event.target.value)}
+                placeholder={isLoginMode ? "Enter your password" : "Minimal 6 karakter"}
+                className="workspace-input auth-input"
+              />
+            </label>
+
+            {authError ? <p className="workspace-validation">{authError}</p> : null}
+
+            <button
+              type="submit"
+              className="workspace-primaryButton auth-submit"
+              disabled={isAuthenticating}
+            >
+              {isAuthenticating
+                ? "Please wait..."
+                : isLoginMode
+                  ? "Login To Workspace"
+                  : "Create Account"}
+            </button>
+          </form>
+
+          <div className="auth-footer">
+            <span>{isLoginMode ? "Belum punya akun?" : "Sudah punya akun?"}</span>
+            <button type="button" className="auth-inlineButton" onClick={onToggleMode}>
+              {isLoginMode ? "Register sekarang" : "Masuk di sini"}
+            </button>
+          </div>
+        </div>
       </section>
     </main>
   );
