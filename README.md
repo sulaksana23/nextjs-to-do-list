@@ -121,7 +121,7 @@ npx prisma migrate dev --name your_change_name
 Saat deploy, project ini sekarang otomatis menjalankan:
 
 ```bash
-prisma generate && prisma migrate deploy && next build --webpack
+prisma generate && PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 prisma migrate deploy && next build --webpack
 ```
 
 Supaya deploy berhasil, pastikan `DATABASE_URL` di Vercel:
@@ -150,6 +150,7 @@ Catatan:
 - login/register sekarang memakai nomor Telegram + password
 - notifikasi Telegram dikirim ke `telegramChatId` user yang di-assign
 - setelah update schema, deploy akan menjalankan migration otomatis dari script build
+- advisory lock Prisma dimatikan saat build supaya `prisma migrate deploy` tidak timeout pada koneksi Neon pooler di Vercel
 
 ## Menjalankan Project
 

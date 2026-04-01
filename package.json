@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "prisma generate && prisma migrate deploy && next build --webpack",
+    "build": "prisma generate && PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 prisma migrate deploy && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
