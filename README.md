@@ -200,10 +200,10 @@ Untuk deploy di Vercel:
 Schedule bawaan saat ini:
 
 ```text
-0 * * * *
+5 1 * * *
 ```
 
-Artinya endpoint reminder akan dipanggil setiap jam. Vercel otomatis mengirim header `Authorization: Bearer <CRON_SECRET>` ke route cron ketika `CRON_SECRET` tersedia.
+Artinya endpoint reminder akan dipanggil setiap hari jam 01:05 UTC, atau jam 09:05 WITA. Jadwal ini aman untuk Vercel Hobby yang membatasi cron harian. Vercel otomatis mengirim header `Authorization: Bearer <CRON_SECRET>` ke route cron ketika `CRON_SECRET` tersedia.
 
 ## Menjalankan Project
 
