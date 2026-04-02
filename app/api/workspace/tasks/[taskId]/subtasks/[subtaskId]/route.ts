@@ -12,9 +12,9 @@ type Context = {
 
 export async function PATCH(_request: Request, context: Context) {
   try {
-    await requireSessionUser();
+    const currentUser = await requireSessionUser();
     const { taskId, subtaskId } = await context.params;
-    const task = await toggleSubtask(taskId, subtaskId);
+    const task = await toggleSubtask(currentUser, taskId, subtaskId);
     return NextResponse.json({ task });
   } catch (error) {
     return errorResponse(error, "Failed to toggle subtask.");

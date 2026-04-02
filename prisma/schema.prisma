@@ -19,31 +19,57 @@ enum TodoTaskStatus {
   DONE
 }
 
-model TodoUser {
-  id               String        @id @default(cuid())
-  name             String
-  initials         String
-  color            String
-  telegramNumber   String?       @unique
-  telegramChatId   String?
-  telegramConnectCode String?    @unique
-  passwordHash     String?
-  tasks            TodoTask[]
-  assignedSubtasks TodoSubtask[] @relation("TodoSubtaskAssignee")
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+enum TodoUserRole {
+  SUPERADMINISTRATOR
+  ADMINISTRATOR
+  MEMBER
+}
 
+model TodoCompany {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  users     TodoUser[]
+  projects  TodoProject[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@map("todo_companies")
+}
+
+model TodoUser {
+  id                 String         @id @default(cuid())
+  companyId          String
+  company            TodoCompany    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name               String
+  initials           String
+  color              String
+  role               TodoUserRole   @default(MEMBER)
+  telegramNumber     String?        @unique
+  telegramChatId     String?
+  telegramConnectCode String?       @unique
+  passwordHash       String?
+  tasks              TodoTask[]
+  assignedSubtasks   TodoSubtask[]  @relation("TodoSubtaskAssignee")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([companyId])
   @@map("todo_users")
 }
 
 model TodoProject {
-  id        String     @id @default(cuid())
+  id        String      @id @default(cuid())
+  companyId String
+  company   TodoCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name      String
-  slug      String     @unique
+  slug      String
   tasks     TodoTask[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
+  @@unique([companyId, slug])
+  @@index([companyId])
   @@map("todo_projects")
 }
 

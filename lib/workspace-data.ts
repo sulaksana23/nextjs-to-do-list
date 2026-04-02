@@ -1,4 +1,5 @@
-import { Prisma, TodoTaskPriority, TodoTaskStatus } from "@prisma/client";
+import { Prisma, TodoTaskPriority, TodoTaskStatus, TodoUserRole } from "@prisma/client";
+import type { SessionUser } from "./auth";
 import { hashPassword, normalizeTelegramNumber } from "./auth";
 import { prisma } from "./prisma";
 import { createTelegramConnectCode } from "./telegram-connect";
@@ -10,6 +11,7 @@ export type WorkspaceUser = {
   name: string;
   initials: string;
   tone: string;
+  role: TodoUserRole;
   telegramNumber: string;
   telegramChatId: string;
   telegramConnected: boolean;
@@ -48,6 +50,10 @@ export type WorkspaceTask = {
 };
 
 export type WorkspacePayload = {
+  company: {
+    id: string;
+    name: string;
+  };
   users: WorkspaceUser[];
   projects: WorkspaceProject[];
   tasks: WorkspaceTask[];
@@ -79,6 +85,7 @@ export type UserInput = {
   telegramChatId?: string;
   color?: string;
   password?: string;
+  role?: TodoUserRole;
 };
 
 const workspaceInclude = {
@@ -120,6 +127,54 @@ function resolveUserColor(name: string, color?: string) {
   const palette = ["teal", "sky", "violet", "amber", "stone", "rose", "lime"];
   const seed = [...name].reduce((total, char) => total + char.charCodeAt(0), 0);
   return palette[seed % palette.length];
+}
+
+async function requireCompanyProject(projectId: string, companyId: string) {
+  const project = await prisma.todoProject.findFirst({
+    where: {
+      id: projectId,
+      companyId,
+    },
+  });
+
+  if (!project) {
+    throw new Error("Project tidak ditemukan untuk perusahaan ini.");
+  }
+
+  return project;
+}
+
+async function requireCompanyTask(taskId: string, companyId: string) {
+  const task = await prisma.todoTask.findFirst({
+    where: {
+      id: taskId,
+      project: {
+        companyId,
+      },
+    },
+    include: workspaceInclude,
+  });
+
+  if (!task) {
+    throw new Error("Task tidak ditemukan untuk perusahaan ini.");
+  }
+
+  return task;
+}
+
+async function requireCompanyUser(userId: string, companyId: string) {
+  const user = await prisma.todoUser.findFirst({
+    where: {
+      id: userId,
+      companyId,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User tidak ditemukan untuk perusahaan ini.");
+  }
+
+  return user;
 }
 
 function toPriority(value: WorkspaceTask["priority"]): TodoTaskPriority {
@@ -175,6 +230,7 @@ function mapUser(user: {
   name: string;
   initials: string;
   color: string;
+  role: TodoUserRole;
   telegramNumber: string | null;
   telegramChatId: string | null;
   telegramConnectCode: string | null;
@@ -185,6 +241,7 @@ function mapUser(user: {
     name: user.name,
     initials: user.initials,
     tone: user.color,
+    role: user.role,
     telegramNumber: user.telegramNumber ?? "",
     telegramChatId: user.telegramChatId ?? "",
     telegramConnected: Boolean(user.telegramChatId),
@@ -322,12 +379,13 @@ async function notifyTaskAssignmentSafely(
   }
 }
 
-export async function getWorkspaceData(): Promise<WorkspacePayload> {
+export async function getWorkspaceData(currentUser: SessionUser): Promise<WorkspacePayload> {
   await cleanupLegacyUsers();
 
   const [users, projects, tasks] = await Promise.all([
     prisma.todoUser.findMany({
       where: {
+        companyId: currentUser.companyId,
         telegramNumber: {
           not: null,
         },
@@ -337,6 +395,9 @@ export async function getWorkspaceData(): Promise<WorkspacePayload> {
       },
     }),
     prisma.todoProject.findMany({
+      where: {
+        companyId: currentUser.companyId,
+      },
       include: {
         _count: {
           select: {
@@ -354,6 +415,11 @@ export async function getWorkspaceData(): Promise<WorkspacePayload> {
       },
     }),
     prisma.todoTask.findMany({
+      where: {
+        project: {
+          companyId: currentUser.companyId,
+        },
+      },
       include: workspaceInclude,
       orderBy: {
         createdAt: "desc",
@@ -362,18 +428,18 @@ export async function getWorkspaceData(): Promise<WorkspacePayload> {
   ]);
 
   return {
+    company: {
+      id: currentUser.companyId,
+      name: currentUser.companyName,
+    },
     users: users.map(mapUser),
     projects: projects.map(mapProject),
     tasks: tasks.map(mapTask),
   };
 }
 
-export async function createTask(input: TaskInput): Promise<TaskMutationResult> {
-  const project = await prisma.todoProject.findUniqueOrThrow({
-    where: {
-      id: input.projectId,
-    },
-  });
+export async function createTask(currentUser: SessionUser, input: TaskInput): Promise<TaskMutationResult> {
+  const project = await requireCompanyProject(input.projectId, currentUser.companyId);
 
   const task = await prisma.todoTask.create({
     data: {
@@ -405,16 +471,22 @@ export async function createTask(input: TaskInput): Promise<TaskMutationResult> 
   };
 }
 
-export async function updateTask(taskId: string, input: TaskInput): Promise<TaskMutationResult> {
-  const project = await prisma.todoProject.findUniqueOrThrow({
-    where: {
-      id: input.projectId,
-    },
-  });
+export async function updateTask(
+  currentUser: SessionUser,
+  taskId: string,
+  input: TaskInput,
+): Promise<TaskMutationResult> {
+  await requireCompanyTask(taskId, currentUser.companyId);
+  const project = await requireCompanyProject(input.projectId, currentUser.companyId);
 
   await prisma.todoSubtask.deleteMany({
     where: {
       taskId,
+      task: {
+        project: {
+          companyId: currentUser.companyId,
+        },
+      },
     },
   });
 
@@ -451,19 +523,25 @@ export async function updateTask(taskId: string, input: TaskInput): Promise<Task
   };
 }
 
-export async function deleteTask(taskId: string) {
+export async function deleteTask(currentUser: SessionUser, taskId: string) {
+  const task = await requireCompanyTask(taskId, currentUser.companyId);
   await prisma.todoTask.delete({
     where: {
-      id: taskId,
+      id: task.id,
     },
   });
 }
 
-export async function toggleSubtask(taskId: string, subtaskId: string) {
+export async function toggleSubtask(currentUser: SessionUser, taskId: string, subtaskId: string) {
   const existing = await prisma.todoSubtask.findFirstOrThrow({
     where: {
       id: subtaskId,
       taskId,
+      task: {
+        project: {
+          companyId: currentUser.companyId,
+        },
+      },
     },
   });
 
@@ -476,17 +554,12 @@ export async function toggleSubtask(taskId: string, subtaskId: string) {
     },
   });
 
-  const task = await prisma.todoTask.findUniqueOrThrow({
-    where: {
-      id: taskId,
-    },
-    include: workspaceInclude,
-  });
+  const task = await requireCompanyTask(taskId, currentUser.companyId);
 
   return mapTask(task);
 }
 
-export async function createProject(input: ProjectInput) {
+export async function createProject(currentUser: SessionUser, input: ProjectInput) {
   const name = input.name.trim();
 
   if (!name) {
@@ -497,13 +570,21 @@ export async function createProject(input: ProjectInput) {
   let slug = baseSlug;
   let counter = 1;
 
-  while (await prisma.todoProject.findUnique({ where: { slug } })) {
+  while (
+    await prisma.todoProject.findFirst({
+      where: {
+        companyId: currentUser.companyId,
+        slug,
+      },
+    })
+  ) {
     counter += 1;
     slug = `${baseSlug}-${counter}`;
   }
 
   const project = await prisma.todoProject.create({
     data: {
+      companyId: currentUser.companyId,
       name,
       slug,
     },
@@ -524,25 +605,26 @@ export async function createProject(input: ProjectInput) {
   return mapProject(project);
 }
 
-export async function updateProject(projectId: string, input: ProjectInput) {
+export async function updateProject(currentUser: SessionUser, projectId: string, input: ProjectInput) {
   const name = input.name.trim();
 
   if (!name) {
     throw new Error("Project name is required.");
   }
 
-  const current = await prisma.todoProject.findUniqueOrThrow({
-    where: {
-      id: projectId,
-    },
-  });
+  const current = await requireCompanyProject(projectId, currentUser.companyId);
 
   const baseSlug = slugifyProjectName(name);
   let slug = baseSlug;
   let counter = 1;
 
   while (true) {
-    const existing = await prisma.todoProject.findUnique({ where: { slug } });
+    const existing = await prisma.todoProject.findFirst({
+      where: {
+        companyId: currentUser.companyId,
+        slug,
+      },
+    });
 
     if (!existing || existing.id === current.id) {
       break;
@@ -587,10 +669,14 @@ export async function updateProject(projectId: string, input: ProjectInput) {
   return mapProject(project);
 }
 
-export async function deleteProject(projectId: string) {
+export async function deleteProject(currentUser: SessionUser, projectId: string) {
+  await requireCompanyProject(projectId, currentUser.companyId);
   const taskCount = await prisma.todoTask.count({
     where: {
       projectId,
+      project: {
+        companyId: currentUser.companyId,
+      },
     },
   });
 
@@ -605,7 +691,7 @@ export async function deleteProject(projectId: string) {
   });
 }
 
-export async function createUser(input: UserInput) {
+export async function createUser(currentUser: SessionUser, input: UserInput) {
   await cleanupLegacyUsers();
 
   const name = input.name.trim();
@@ -633,9 +719,11 @@ export async function createUser(input: UserInput) {
 
   const user = await prisma.todoUser.create({
     data: {
+      companyId: currentUser.companyId,
       name,
       initials: deriveInitials(name),
       color: resolveUserColor(name, input.color),
+      role: input.role ?? "MEMBER",
       telegramNumber,
       telegramChatId,
       telegramConnectCode: await createTelegramConnectCode(),
@@ -646,14 +734,10 @@ export async function createUser(input: UserInput) {
   return mapUser(user);
 }
 
-export async function updateUser(userId: string, input: UserInput) {
+export async function updateUser(currentUser: SessionUser, userId: string, input: UserInput) {
   await cleanupLegacyUsers();
 
-  const current = await prisma.todoUser.findUniqueOrThrow({
-    where: {
-      id: userId,
-    },
-  });
+  const current = await requireCompanyUser(userId, currentUser.companyId);
 
   const name = input.name.trim();
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
@@ -686,6 +770,7 @@ export async function updateUser(userId: string, input: UserInput) {
       name,
       initials: deriveInitials(name),
       color: resolveUserColor(name, input.color),
+      role: input.role ?? current.role,
       telegramNumber,
       telegramChatId,
       passwordHash: password ? hashPassword(password) : current.passwordHash,
@@ -695,14 +780,20 @@ export async function updateUser(userId: string, input: UserInput) {
   return mapUser(user);
 }
 
-export async function deleteUser(userId: string, currentUserId?: string) {
-  if (userId === currentUserId) {
+export async function deleteUser(currentUser: SessionUser, userId: string) {
+  if (userId === currentUser.id) {
     throw new Error("User yang sedang login tidak bisa dihapus.");
+  }
+
+  const targetUser = await requireCompanyUser(userId, currentUser.companyId);
+
+  if (targetUser.role === "SUPERADMINISTRATOR") {
+    throw new Error("Superadministrator tidak bisa dihapus dari CRUD user.");
   }
 
   await prisma.todoUser.delete({
     where: {
-      id: userId,
+      id: targetUser.id,
     },
   });
 }

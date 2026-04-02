@@ -6,7 +6,7 @@ import { createTask, getWorkspaceData, type TaskInput } from "@/lib/workspace-da
 export async function GET() {
   try {
     const currentUser = await requireSessionUser();
-    const data = await getWorkspaceData();
+    const data = await getWorkspaceData(currentUser);
     return NextResponse.json({
       ...data,
       currentUser,
@@ -18,9 +18,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireSessionUser();
+    const currentUser = await requireSessionUser();
     const payload = (await request.json()) as TaskInput;
-    const result = await createTask(payload);
+    const result = await createTask(currentUser, payload);
     return NextResponse.json(result);
   } catch (error) {
     return errorResponse(error, "Failed to create task.");

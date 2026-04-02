@@ -27,6 +27,9 @@ export async function ensureTelegramConnectCode(userId: string) {
     where: {
       id: userId,
     },
+    include: {
+      company: true,
+    },
   });
 
   if (!user) {
@@ -43,6 +46,9 @@ export async function ensureTelegramConnectCode(userId: string) {
     },
     data: {
       telegramConnectCode: await createTelegramConnectCode(),
+    },
+    include: {
+      company: true,
     },
   });
 }

@@ -20,9 +20,11 @@ Project ini dibuat untuk pengalaman mirip workspace app seperti ClickUp:
 ## Fitur
 
 - Dashboard workspace dengan beberapa view: `Home`, `Dashboard`, `Inbox`, `My Tasks`, `Replies`, `Assigned`
+- Multi-company workspace: data user, project, dan task terscope per perusahaan
 - Product section: `Docs`, `Forms`, `Whiteboards`, `Goals`, `Timesheet`
 - Task CRUD
 - Project CRUD
+- User CRUD dengan role: `Superadministrator`, `Administrator`, `Member`
 - Filter task berdasarkan project aktif di sidebar
 - Search task berdasarkan title, description, assignee, subtask, dan project
 - Sort task: `Newest`, `Oldest`, `Priority`, `Due soon`
@@ -150,6 +152,7 @@ DEADLINE_NOTIFICATION_TIME_ZONE="Asia/Makassar"
 Catatan:
 
 - login/register sekarang memakai nomor Telegram + password
+- user pertama yang register untuk sebuah perusahaan otomatis menjadi `SUPERADMINISTRATOR`
 - notifikasi Telegram dikirim ke `telegramChatId` user yang di-assign
 - reminder deadline dikirim terjadwal lewat cron ke task yang due hari ini atau sudah lewat deadline
 - setelah update schema, deploy akan menjalankan migration otomatis dari script build
@@ -174,6 +177,14 @@ https://your-domain.vercel.app/api/telegram/webhook
 ```
 
 Setelah bot membalas berhasil terhubung, assignment task dan subtask ke user itu akan mengirim notifikasi otomatis.
+
+## Multi Company dan Role
+
+- saat register, isi `Company Name`
+- perusahaan baru akan dibuat otomatis bila belum ada
+- user pertama pada perusahaan itu otomatis menjadi `SUPERADMINISTRATOR`
+- user berikutnya dibuat dari menu user CRUD di dalam workspace perusahaan tersebut
+- data project, task, dan user hanya terlihat di perusahaan yang sama
 
 ## Schedule Reminder Deadline
 

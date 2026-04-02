@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { TodoUserRole } from "@prisma/client";
 import { prisma } from "./prisma";
 import { createTelegramConnectCode, ensureTelegramConnectCode } from "./telegram-connect";
 import { cleanupLegacyUsers } from "./user-cleanup";
@@ -9,9 +10,12 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 
 export type SessionUser = {
   id: string;
+  companyId: string;
+  companyName: string;
   name: string;
   initials: string;
   color: string;
+  role: TodoUserRole;
   telegramNumber: string;
   telegramChatId: string;
   telegramConnectCode: string;
@@ -23,10 +27,19 @@ export type AuthCredentials = {
 };
 
 export type RegisterInput = AuthCredentials & {
+  companyName: string;
   name: string;
   color?: string;
   telegramChatId?: string;
 };
+
+function slugifyCompanyName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "company";
+}
 
 function getAuthSecret() {
   return process.env.AUTH_SECRET || process.env.TELEGRAM_BOT_TOKEN || "todo-flow-local-secret";
@@ -38,18 +51,26 @@ export function normalizeTelegramNumber(value: string) {
 
 function formatSessionUser(user: {
   id: string;
+  companyId: string;
+  company: {
+    name: string;
+  };
   name: string;
   initials: string;
   color: string;
+  role: TodoUserRole;
   telegramNumber: string | null;
   telegramChatId: string | null;
   telegramConnectCode: string | null;
 }): SessionUser {
   return {
     id: user.id,
+    companyId: user.companyId,
+    companyName: user.company.name,
     name: user.name,
     initials: user.initials,
     color: user.color,
+    role: user.role,
     telegramNumber: user.telegramNumber ?? "",
     telegramChatId: user.telegramChatId ?? "",
     telegramConnectCode: user.telegramConnectCode ?? "",
@@ -169,6 +190,9 @@ export async function getSessionUser() {
     where: {
       id: parsedToken.userId,
     },
+    include: {
+      company: true,
+    },
   });
 
   if (!user) {
@@ -186,6 +210,14 @@ export async function requireSessionUser() {
 
   if (!user) {
     throw new Error("UNAUTHORIZED");
+  }
+
+  return user;
+}
+
+export function requireUserManagementAccess(user: SessionUser) {
+  if (user.role === "MEMBER") {
+    throw new Error("Hanya administrator atau superadministrator yang bisa mengelola user.");
   }
 
   return user;
@@ -221,12 +253,17 @@ export async function registerWithTelegramNumber(input: RegisterInput) {
   await cleanupLegacyUsers();
 
   const name = input.name.trim();
+  const companyName = input.companyName.trim();
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
   const password = input.password.trim();
   const telegramChatId = input.telegramChatId?.trim() || null;
 
   if (!name) {
     throw new Error("Nama wajib diisi.");
+  }
+
+  if (!companyName) {
+    throw new Error("Nama perusahaan wajib diisi.");
   }
 
   if (!telegramNumber) {
@@ -247,15 +284,47 @@ export async function registerWithTelegramNumber(input: RegisterInput) {
     throw new Error("Nomor Telegram sudah terdaftar.");
   }
 
+  const companySlug = slugifyCompanyName(companyName);
+  const existingCompany = await prisma.todoCompany.findUnique({
+    where: {
+      slug: companySlug,
+    },
+    include: {
+      _count: {
+        select: {
+          users: true,
+        },
+      },
+    },
+  });
+
+  if (existingCompany && existingCompany._count.users > 0) {
+    throw new Error("Perusahaan ini sudah terdaftar. Minta superadministrator membuatkan user untuk kamu.");
+  }
+
+  const company =
+    existingCompany ??
+    (await prisma.todoCompany.create({
+      data: {
+        name: companyName,
+        slug: companySlug,
+      },
+    }));
+
   const user = await prisma.todoUser.create({
     data: {
+      companyId: company.id,
       name,
       initials: deriveInitials(name),
       color: resolveUserColor(name, input.color),
+      role: "SUPERADMINISTRATOR",
       telegramNumber,
       telegramChatId,
       telegramConnectCode: await createTelegramConnectCode(),
       passwordHash: hashPassword(password),
+    },
+    include: {
+      company: true,
     },
   });
 

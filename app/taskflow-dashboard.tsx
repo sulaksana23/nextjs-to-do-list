@@ -18,6 +18,7 @@ type WorkspaceUser = {
   name: string;
   initials: string;
   tone: string;
+  role: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
   telegramNumber: string;
   telegramChatId: string;
   telegramConnected: boolean;
@@ -77,9 +78,11 @@ type UserDraft = {
   telegramChatId: string;
   password: string;
   color: string;
+  role: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
 };
 
 type AuthForm = {
+  companyName: string;
   name: string;
   telegramNumber: string;
   password: string;
@@ -88,15 +91,22 @@ type AuthForm = {
 
 type SessionUser = {
   id: string;
+  companyId: string;
+  companyName: string;
   name: string;
   initials: string;
   color: string;
+  role: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
   telegramNumber: string;
   telegramChatId: string;
   telegramConnectCode: string;
 };
 
 type WorkspaceResponse = {
+  company: {
+    id: string;
+    name: string;
+  };
   users: WorkspaceUser[];
   projects: WorkspaceProject[];
   tasks: Task[];
@@ -160,9 +170,11 @@ const defaultUserDraft: UserDraft = {
   telegramChatId: "",
   password: "",
   color: "",
+  role: "MEMBER",
 };
 
 const defaultAuthForm: AuthForm = {
+  companyName: "",
   name: "",
   telegramNumber: "",
   password: "",
@@ -191,6 +203,12 @@ function normalizeUsers(value: unknown): WorkspaceUser[] {
         name: user.name,
         initials: typeof user.initials === "string" ? user.initials : user.name.slice(0, 2),
         tone: typeof user.tone === "string" ? user.tone : "muted",
+        role:
+          user.role === "SUPERADMINISTRATOR" ||
+          user.role === "ADMINISTRATOR" ||
+          user.role === "MEMBER"
+            ? user.role
+            : "MEMBER",
         telegramNumber:
           typeof user.telegramNumber === "string" ? user.telegramNumber : "",
         telegramChatId:
@@ -341,9 +359,17 @@ function normalizeSessionUser(value: unknown): SessionUser | null {
 
   return {
     id: user.id,
+    companyId: typeof user.companyId === "string" ? user.companyId : "",
+    companyName: typeof user.companyName === "string" ? user.companyName : "",
     name: user.name,
     initials: typeof user.initials === "string" ? user.initials : user.name.slice(0, 2),
     color: typeof user.color === "string" ? user.color : "teal",
+    role:
+      user.role === "SUPERADMINISTRATOR" ||
+      user.role === "ADMINISTRATOR" ||
+      user.role === "MEMBER"
+        ? user.role
+        : "MEMBER",
     telegramNumber: typeof user.telegramNumber === "string" ? user.telegramNumber : "",
     telegramChatId: typeof user.telegramChatId === "string" ? user.telegramChatId : "",
     telegramConnectCode:
@@ -469,6 +495,7 @@ export default function TaskflowDashboard() {
           name: currentUser.name,
           initials: currentUser.initials,
           tone: currentUser.color,
+          role: currentUser.role,
           telegramNumber: currentUser.telegramNumber,
           telegramChatId: currentUser.telegramChatId,
           telegramConnected: Boolean(currentUser.telegramChatId),
@@ -495,6 +522,8 @@ export default function TaskflowDashboard() {
 
     return getDaysLeft(task.dueDate) <= 1;
   });
+  const canManageUsers =
+    currentUser?.role === "SUPERADMINISTRATOR" || currentUser?.role === "ADMINISTRATOR";
 
   const scopedTasks = selectedProjectId
     ? tasks.filter((task) => task.projectId === selectedProjectId)
@@ -1097,6 +1126,7 @@ export default function TaskflowDashboard() {
       telegramChatId: user.telegramChatId,
       password: "",
       color: user.tone,
+      role: user.role,
     });
     setEditingUserId(user.id);
     setUserValidationMessage("");
@@ -1216,6 +1246,11 @@ export default function TaskflowDashboard() {
 
     if (!isLoginMode && !authForm.name.trim()) {
       setAuthError("Nama wajib diisi untuk register.");
+      return;
+    }
+
+    if (!isLoginMode && !authForm.companyName.trim()) {
+      setAuthError("Nama perusahaan wajib diisi untuk register.");
       return;
     }
 
@@ -1403,9 +1438,10 @@ export default function TaskflowDashboard() {
               <Avatar user={currentWorkspaceUser} />
               <div className="workspace-sessionMeta">
                 <span>{currentWorkspaceUser.name}</span>
+                <span>{currentUser?.companyName || "No company"}</span>
                 <span>{currentWorkspaceUser.telegramNumber || "No Telegram number"}</span>
                 <span>
-                  Telegram: {currentWorkspaceUser.telegramConnected ? "Connected" : "Not connected"}
+                  {currentWorkspaceUser.role} • Telegram: {currentWorkspaceUser.telegramConnected ? "Connected" : "Not connected"}
                 </span>
               </div>
             </div>
@@ -2117,9 +2153,11 @@ export default function TaskflowDashboard() {
                   <p className="workspace-sectionEyebrow">Timesheet</p>
                   <h3 className="workspace-homePanelTitle">Team, login, and Telegram routing</h3>
                 </div>
-                <button type="button" className="workspace-primaryButton" onClick={openCreateUserModal}>
-                  + User
-                </button>
+                {canManageUsers ? (
+                  <button type="button" className="workspace-primaryButton" onClick={openCreateUserModal}>
+                    + User
+                  </button>
+                ) : null}
               </div>
               <div className="workspace-homeList">
                 {users.map((user) => {
@@ -2140,6 +2178,8 @@ export default function TaskflowDashboard() {
                           {assignedSubtasks} subtasks
                         </p>
                         <p className="workspace-homeItemMeta">
+                          Role: {user.role} •
+                          {" "}
                           Telegram: {user.telegramConnected ? "Connected" : "Not connected"} • Chat ID:{" "}
                           {user.telegramChatId || "Belum diisi"} • Login:{" "}
                           {user.hasPassword ? "Ready" : "Belum diset"}
@@ -2147,20 +2187,24 @@ export default function TaskflowDashboard() {
                       </div>
                       <div className="workspace-userActions">
                         <Avatar user={user} />
-                        <button
-                          type="button"
-                          onClick={() => handleUserEdit(user)}
-                          className="workspace-ghostButton"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUserDelete(user.id)}
-                          className="workspace-dangerButton"
-                        >
-                          Delete
-                        </button>
+                        {canManageUsers ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUserEdit(user)}
+                            className="workspace-ghostButton"
+                          >
+                            Edit
+                          </button>
+                        ) : null}
+                        {canManageUsers ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUserDelete(user.id)}
+                            className="workspace-dangerButton"
+                          >
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -2606,6 +2650,24 @@ export default function TaskflowDashboard() {
 
                 <div className="workspace-taskModalPills">
                   <label className="workspace-modalFieldPill">
+                    <span>Role</span>
+                    <select
+                      value={userDraft.role}
+                      onChange={(event) =>
+                        setUserDraft((current) => ({
+                          ...current,
+                          role: event.target.value as UserDraft["role"],
+                        }))
+                      }
+                      className="workspace-modalFieldControl"
+                    >
+                      <option value="MEMBER">Member</option>
+                      <option value="ADMINISTRATOR">Administrator</option>
+                      <option value="SUPERADMINISTRATOR">Superadministrator</option>
+                    </select>
+                  </label>
+
+                  <label className="workspace-modalFieldPill">
                     <span>Password</span>
                     <input
                       type="password"
@@ -2700,10 +2762,10 @@ function AuthShell({
         <div className="auth-showcase">
           <div className="auth-badge">Todo Flow</div>
           <p className="workspace-sectionEyebrow">Telegram-Ready Workspace</p>
-          <h1 className="auth-title">Akses workspace dengan identitas Telegram yang rapi dan aman.</h1>
+          <h1 className="auth-title">Akses workspace multi-company dengan identitas Telegram yang rapi dan aman.</h1>
           <p className="auth-copy">
-            User bisa login memakai nomor Telegram, lalu assignment task dan subtask akan siap
-            diarahkan ke Telegram begitu `chat id` user terhubung.
+            Tiap perusahaan punya workspace sendiri. User pertama yang register akan otomatis jadi
+            superadministrator, lalu bisa membuat user lain untuk tim perusahaannya.
           </p>
 
           <div className="auth-featureList">
@@ -2756,6 +2818,18 @@ function AuthShell({
           </div>
 
           <form className="auth-form" onSubmit={onSubmit}>
+            {!isLoginMode ? (
+              <label className="auth-field">
+                <span className="auth-label">Company Name</span>
+                <input
+                  value={authForm.companyName}
+                  onChange={(event) => onChange("companyName", event.target.value)}
+                  placeholder="PT Contoh Teknologi"
+                  className="workspace-input auth-input"
+                />
+              </label>
+            ) : null}
+
             {!isLoginMode ? (
               <label className="auth-field">
                 <span className="auth-label">Full Name</span>

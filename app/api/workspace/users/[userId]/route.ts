@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSessionUser } from "@/lib/auth";
+import { requireSessionUser, requireUserManagementAccess } from "@/lib/auth";
 import { errorResponse } from "@/lib/http";
 import { deleteUser, updateUser, type UserInput } from "@/lib/workspace-data";
 
@@ -11,10 +11,10 @@ type Context = {
 
 export async function PATCH(request: Request, context: Context) {
   try {
-    await requireSessionUser();
+    const currentUser = requireUserManagementAccess(await requireSessionUser());
     const { userId } = await context.params;
     const payload = (await request.json()) as UserInput;
-    const user = await updateUser(userId, payload);
+    const user = await updateUser(currentUser, userId, payload);
     return NextResponse.json({ user });
   } catch (error) {
     return errorResponse(error, "Failed to update user.");
@@ -23,9 +23,9 @@ export async function PATCH(request: Request, context: Context) {
 
 export async function DELETE(_request: Request, context: Context) {
   try {
-    const currentUser = await requireSessionUser();
+    const currentUser = requireUserManagementAccess(await requireSessionUser());
     const { userId } = await context.params;
-    await deleteUser(userId, currentUser.id);
+    await deleteUser(currentUser, userId);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return errorResponse(error, "Failed to delete user.");
