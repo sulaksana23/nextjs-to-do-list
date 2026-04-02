@@ -12,17 +12,39 @@ type Priority = "Low" | "Medium" | "High";
 type StatusFilter = "All" | "Open" | "Done";
 type SortOption = "Newest" | "Oldest" | "Priority" | "Due soon";
 type TaskStatus = "Hold" | "In Progress" | "Done";
+type PermissionKey =
+  | "MANAGE_COMPANY_SETTINGS"
+  | "MANAGE_USERS"
+  | "MANAGE_ROLES"
+  | "MANAGE_PROJECTS"
+  | "MANAGE_TASKS"
+  | "VIEW_REPORTS"
+  | "MANAGE_NOTIFICATIONS";
 
 type WorkspaceUser = {
   id: string;
   name: string;
   initials: string;
   tone: string;
+  roleId: string;
   role: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
+  roleName: string;
+  permissions: PermissionKey[];
   telegramNumber: string;
   telegramChatId: string;
   telegramConnected: boolean;
   hasPassword: boolean;
+};
+
+type WorkspaceRole = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  baseRole: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
+  permissions: PermissionKey[];
+  userCount: number;
+  isSystem: boolean;
 };
 
 type WorkspaceProject = {
@@ -78,7 +100,14 @@ type UserDraft = {
   telegramChatId: string;
   password: string;
   color: string;
-  role: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
+  roleId: string;
+};
+
+type RoleDraft = {
+  name: string;
+  description: string;
+  baseRole: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
+  permissions: PermissionKey[];
 };
 
 type AuthForm = {
@@ -93,10 +122,13 @@ type SessionUser = {
   id: string;
   companyId: string;
   companyName: string;
+  roleId: string;
+  roleName: string;
   name: string;
   initials: string;
   color: string;
   role: "SUPERADMINISTRATOR" | "ADMINISTRATOR" | "MEMBER";
+  permissions: PermissionKey[];
   telegramNumber: string;
   telegramChatId: string;
   telegramConnectCode: string;
@@ -107,19 +139,38 @@ type WorkspaceResponse = {
     id: string;
     name: string;
   };
+  permissions: PermissionKey[];
+  roles: WorkspaceRole[];
   users: WorkspaceUser[];
   projects: WorkspaceProject[];
   tasks: Task[];
   currentUser: SessionUser;
 };
 
-type WorkspaceView = "Dashboard" | "Home" | "Inbox" | "My Tasks" | "Replies" | "Assigned" | "Users";
+type WorkspaceView =
+  | "Dashboard"
+  | "Home"
+  | "Inbox"
+  | "My Tasks"
+  | "Replies"
+  | "Assigned"
+  | "Users"
+  | "Roles";
 type ProductView = "Docs" | "Forms" | "Whiteboards" | "Goals" | "Timesheet";
 type ActiveView = WorkspaceView | ProductView;
 type DesktopNotificationPermission = NotificationPermission | "unsupported";
 
 const DESKTOP_DEADLINE_NOTIFICATION_INTERVAL_MS = 10 * 60 * 1000;
 const TELEGRAM_REFRESH_NOTIFICATION_INTERVAL_MS = 10 * 60 * 1000;
+const PERMISSION_LABELS: Record<PermissionKey, string> = {
+  MANAGE_COMPANY_SETTINGS: "Company settings",
+  MANAGE_USERS: "Users",
+  MANAGE_ROLES: "Roles",
+  MANAGE_PROJECTS: "Projects",
+  MANAGE_TASKS: "Tasks",
+  VIEW_REPORTS: "Reports",
+  MANAGE_NOTIFICATIONS: "Notifications",
+};
 
 const WORKSPACE_ITEMS = [
   { label: "Dashboard", icon: "◫" },
@@ -129,6 +180,7 @@ const WORKSPACE_ITEMS = [
   { label: "Replies", icon: "↩" },
   { label: "Assigned", icon: "@" },
   { label: "Users", icon: "👥" },
+  { label: "Roles", icon: "⚿" },
 ] as const satisfies ReadonlyArray<{ label: WorkspaceView; icon: string }>;
 
 const PRODUCT_ITEMS = [
@@ -171,7 +223,14 @@ const defaultUserDraft: UserDraft = {
   telegramChatId: "",
   password: "",
   color: "",
-  role: "MEMBER",
+  roleId: "",
+};
+
+const defaultRoleDraft: RoleDraft = {
+  name: "",
+  description: "",
+  baseRole: "MEMBER",
+  permissions: ["MANAGE_TASKS", "MANAGE_NOTIFICATIONS"],
 };
 
 const defaultAuthForm: AuthForm = {
@@ -204,12 +263,18 @@ function normalizeUsers(value: unknown): WorkspaceUser[] {
         name: user.name,
         initials: typeof user.initials === "string" ? user.initials : user.name.slice(0, 2),
         tone: typeof user.tone === "string" ? user.tone : "muted",
+        roleId: typeof user.roleId === "string" ? user.roleId : "",
         role:
           user.role === "SUPERADMINISTRATOR" ||
           user.role === "ADMINISTRATOR" ||
           user.role === "MEMBER"
             ? user.role
             : "MEMBER",
+        roleName:
+          typeof user.roleName === "string" && user.roleName.trim()
+            ? user.roleName
+            : "Member",
+        permissions: normalizePermissions(user.permissions),
         telegramNumber:
           typeof user.telegramNumber === "string" ? user.telegramNumber : "",
         telegramChatId:
@@ -219,6 +284,59 @@ function normalizeUsers(value: unknown): WorkspaceUser[] {
       };
     })
     .filter((item): item is WorkspaceUser => item !== null);
+}
+
+function normalizePermissions(value: unknown): PermissionKey[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (permission): permission is PermissionKey =>
+      permission === "MANAGE_COMPANY_SETTINGS" ||
+      permission === "MANAGE_USERS" ||
+      permission === "MANAGE_ROLES" ||
+      permission === "MANAGE_PROJECTS" ||
+      permission === "MANAGE_TASKS" ||
+      permission === "VIEW_REPORTS" ||
+      permission === "MANAGE_NOTIFICATIONS",
+  );
+}
+
+function normalizeRoles(value: unknown): WorkspaceRole[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item, index) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const role = item as Partial<WorkspaceRole>;
+
+      if (typeof role.id !== "string" || typeof role.name !== "string") {
+        return null;
+      }
+
+      return {
+        id: role.id,
+        name: role.name,
+        slug: typeof role.slug === "string" ? role.slug : `role-${index}`,
+        description: typeof role.description === "string" ? role.description : "",
+        baseRole:
+          role.baseRole === "SUPERADMINISTRATOR" ||
+          role.baseRole === "ADMINISTRATOR" ||
+          role.baseRole === "MEMBER"
+            ? role.baseRole
+            : "MEMBER",
+        permissions: normalizePermissions(role.permissions),
+        userCount: typeof role.userCount === "number" ? role.userCount : 0,
+        isSystem: Boolean(role.isSystem),
+      };
+    })
+    .filter((item): item is WorkspaceRole => item !== null);
 }
 
 function normalizeSubtasks(value: unknown): Subtask[] {
@@ -362,6 +480,8 @@ function normalizeSessionUser(value: unknown): SessionUser | null {
     id: user.id,
     companyId: typeof user.companyId === "string" ? user.companyId : "",
     companyName: typeof user.companyName === "string" ? user.companyName : "",
+    roleId: typeof user.roleId === "string" ? user.roleId : "",
+    roleName: typeof user.roleName === "string" ? user.roleName : "Member",
     name: user.name,
     initials: typeof user.initials === "string" ? user.initials : user.name.slice(0, 2),
     color: typeof user.color === "string" ? user.color : "teal",
@@ -371,6 +491,7 @@ function normalizeSessionUser(value: unknown): SessionUser | null {
       user.role === "MEMBER"
         ? user.role
         : "MEMBER",
+    permissions: normalizePermissions(user.permissions),
     telegramNumber: typeof user.telegramNumber === "string" ? user.telegramNumber : "",
     telegramChatId: typeof user.telegramChatId === "string" ? user.telegramChatId : "",
     telegramConnectCode:
@@ -380,6 +501,7 @@ function normalizeSessionUser(value: unknown): SessionUser | null {
 
 export default function TaskflowDashboard() {
   const titleId = useId();
+  const [roles, setRoles] = useState<WorkspaceRole[]>([]);
   const [users, setUsers] = useState<WorkspaceUser[]>([]);
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -387,13 +509,16 @@ export default function TaskflowDashboard() {
   const [draft, setDraft] = useState<TaskDraft>(defaultDraft);
   const [projectDraft, setProjectDraft] = useState<ProjectDraft>(defaultProjectDraft);
   const [userDraft, setUserDraft] = useState<UserDraft>(defaultUserDraft);
+  const [roleDraft, setRoleDraft] = useState<RoleDraft>(defaultRoleDraft);
   const [authForm, setAuthForm] = useState<AuthForm>(defaultAuthForm);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>("Home");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -411,6 +536,8 @@ export default function TaskflowDashboard() {
   const [projectRequestError, setProjectRequestError] = useState("");
   const [userValidationMessage, setUserValidationMessage] = useState("");
   const [userRequestError, setUserRequestError] = useState("");
+  const [roleValidationMessage, setRoleValidationMessage] = useState("");
+  const [roleRequestError, setRoleRequestError] = useState("");
   const [authError, setAuthError] = useState("");
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [subtaskAssigneeId, setSubtaskAssigneeId] = useState("");
@@ -418,6 +545,7 @@ export default function TaskflowDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [isProjectSaving, setIsProjectSaving] = useState(false);
   const [isUserSaving, setIsUserSaving] = useState(false);
+  const [isRoleSaving, setIsRoleSaving] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [desktopNotificationPermission, setDesktopNotificationPermission] =
     useState<DesktopNotificationPermission>("default");
@@ -441,6 +569,7 @@ export default function TaskflowDashboard() {
 
       if (response.status === 401) {
         setCurrentUser(null);
+        setRoles([]);
         setUsers([]);
         setProjects([]);
         setTasks([]);
@@ -451,11 +580,13 @@ export default function TaskflowDashboard() {
         throw new Error(payload.detail || payload.error || "Failed to load workspace.");
       }
 
+      const nextRoles = normalizeRoles(payload.roles);
       const nextUsers = normalizeUsers(payload.users);
       const nextProjects = normalizeProjects(payload.projects);
       const nextTasks = normalizeTasks(payload.tasks);
       const nextCurrentUser = normalizeSessionUser(payload.currentUser);
       setCurrentUser(nextCurrentUser);
+      setRoles(nextRoles);
       setUsers(nextUsers);
       setProjects(nextProjects);
       setTasks(nextTasks);
@@ -496,7 +627,10 @@ export default function TaskflowDashboard() {
           name: currentUser.name,
           initials: currentUser.initials,
           tone: currentUser.color,
+          roleId: currentUser.roleId,
           role: currentUser.role,
+          roleName: currentUser.roleName,
+          permissions: currentUser.permissions,
           telegramNumber: currentUser.telegramNumber,
           telegramChatId: currentUser.telegramChatId,
           telegramConnected: Boolean(currentUser.telegramChatId),
@@ -523,8 +657,12 @@ export default function TaskflowDashboard() {
 
     return getDaysLeft(task.dueDate) <= 1;
   });
-  const canManageUsers =
-    currentUser?.role === "SUPERADMINISTRATOR" || currentUser?.role === "ADMINISTRATOR";
+  const canManageUsers = currentUser?.permissions.includes("MANAGE_USERS") ?? false;
+  const canManageRoles = currentUser?.permissions.includes("MANAGE_ROLES") ?? false;
+  const canManageProjects = currentUser?.permissions.includes("MANAGE_PROJECTS") ?? false;
+  const canManageTasks = currentUser?.permissions.includes("MANAGE_TASKS") ?? false;
+  const defaultMemberRole =
+    roles.find((role) => role.baseRole === "MEMBER" && role.isSystem) ?? roles[0] ?? null;
 
   const scopedTasks = selectedProjectId
     ? tasks.filter((task) => task.projectId === selectedProjectId)
@@ -668,7 +806,10 @@ export default function TaskflowDashboard() {
   }
 
   function openCreateUserModal() {
-    setUserDraft(defaultUserDraft);
+    setUserDraft({
+      ...defaultUserDraft,
+      roleId: defaultMemberRole?.id ?? "",
+    });
     setEditingUserId(null);
     setUserValidationMessage("");
     setUserRequestError("");
@@ -676,11 +817,30 @@ export default function TaskflowDashboard() {
   }
 
   function resetUserDraft() {
-    setUserDraft(defaultUserDraft);
+    setUserDraft({
+      ...defaultUserDraft,
+      roleId: defaultMemberRole?.id ?? "",
+    });
     setEditingUserId(null);
     setUserValidationMessage("");
     setUserRequestError("");
     setIsUserModalOpen(false);
+  }
+
+  function openCreateRoleModal() {
+    setRoleDraft(defaultRoleDraft);
+    setEditingRoleId(null);
+    setRoleValidationMessage("");
+    setRoleRequestError("");
+    setIsRoleModalOpen(true);
+  }
+
+  function resetRoleDraft() {
+    setRoleDraft(defaultRoleDraft);
+    setEditingRoleId(null);
+    setRoleValidationMessage("");
+    setRoleRequestError("");
+    setIsRoleModalOpen(false);
   }
 
   async function handleEnableDesktopNotifications() {
@@ -1127,7 +1287,7 @@ export default function TaskflowDashboard() {
       telegramChatId: user.telegramChatId,
       password: "",
       color: user.tone,
-      role: user.role,
+      roleId: user.roleId,
     });
     setEditingUserId(user.id);
     setUserValidationMessage("");
@@ -1185,6 +1345,22 @@ export default function TaskflowDashboard() {
           ? current.map((user) => (user.id === editingUserId ? nextUser : user))
           : [...current, nextUser],
       );
+      setCurrentUser((current) =>
+        current && nextUser.id === current.id
+          ? {
+              ...current,
+              roleId: nextUser.roleId,
+              role: nextUser.role,
+              roleName: nextUser.roleName,
+              permissions: nextUser.permissions,
+              name: nextUser.name,
+              initials: nextUser.initials,
+              color: nextUser.tone,
+              telegramNumber: nextUser.telegramNumber,
+              telegramChatId: nextUser.telegramChatId,
+            }
+          : current,
+      );
       setDraft((current) => ({
         ...current,
         assigneeId: current.assigneeId || nextUser.id,
@@ -1229,6 +1405,125 @@ export default function TaskflowDashboard() {
       resetUserDraft();
     } catch (error) {
       setUserRequestError(error instanceof Error ? error.message : "Failed to delete user.");
+    }
+  }
+
+  function handleRoleEdit(role: WorkspaceRole) {
+    setRoleDraft({
+      name: role.name,
+      description: role.description,
+      baseRole: role.baseRole,
+      permissions: role.permissions,
+    });
+    setEditingRoleId(role.id);
+    setRoleValidationMessage("");
+    setRoleRequestError("");
+    setIsRoleModalOpen(true);
+  }
+
+  async function handleRoleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!roleDraft.name.trim()) {
+      setRoleValidationMessage("Nama role wajib diisi.");
+      return;
+    }
+
+    if (roleDraft.permissions.length === 0) {
+      setRoleValidationMessage("Minimal pilih satu permission.");
+      return;
+    }
+
+    try {
+      setIsRoleSaving(true);
+      setRoleValidationMessage("");
+      setRoleRequestError("");
+
+      const response = await fetch(
+        editingRoleId ? `/api/workspace/roles/${editingRoleId}` : "/api/workspace/roles",
+        {
+          method: editingRoleId ? "PATCH" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(roleDraft),
+        },
+      );
+
+      const data = (await response.json()) as {
+        role?: WorkspaceRole;
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok || !data.role) {
+        throw new Error(data.detail || data.error || "Failed to save role.");
+      }
+
+      const nextRole = normalizeRoles([data.role])[0];
+
+      if (!nextRole) {
+        throw new Error("Invalid role response.");
+      }
+
+      setRoles((current) =>
+        editingRoleId
+          ? current.map((role) => (role.id === editingRoleId ? nextRole : role))
+          : [...current, nextRole],
+      );
+      setUsers((current) =>
+        current.map((user) =>
+          user.roleId === nextRole.id
+            ? {
+                ...user,
+                role: nextRole.baseRole,
+                roleName: nextRole.name,
+                permissions: nextRole.permissions,
+              }
+            : user,
+        ),
+      );
+      setCurrentUser((current) =>
+        current && current.roleId === nextRole.id
+          ? {
+              ...current,
+              role: nextRole.baseRole,
+              roleName: nextRole.name,
+              permissions: nextRole.permissions,
+            }
+          : current,
+      );
+      resetRoleDraft();
+    } catch (error) {
+      setRoleRequestError(error instanceof Error ? error.message : "Failed to save role.");
+    } finally {
+      setIsRoleSaving(false);
+    }
+  }
+
+  async function handleRoleDelete(roleId: string) {
+    try {
+      setRoleRequestError("");
+      const response = await fetch(`/api/workspace/roles/${roleId}`, {
+        method: "DELETE",
+      });
+
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || "Failed to delete role.");
+      }
+
+      setRoles((current) => current.filter((role) => role.id !== roleId));
+      if (editingRoleId === roleId) {
+        resetRoleDraft();
+      }
+    } catch (error) {
+      setRoleRequestError(error instanceof Error ? error.message : "Failed to delete role.");
     }
   }
 
@@ -1397,13 +1692,15 @@ export default function TaskflowDashboard() {
         <section className="workspace-section">
           <div className="workspace-sectionHeader">
             <span>Spaces</span>
-            <button
-              type="button"
-              className="workspace-sectionAction"
-              onClick={openCreateProjectModal}
-            >
-              +
-            </button>
+            {canManageProjects ? (
+              <button
+                type="button"
+                className="workspace-sectionAction"
+                onClick={openCreateProjectModal}
+              >
+                +
+              </button>
+            ) : null}
           </div>
           <div className="workspace-spaceList">
             {projects.map((project) => (
@@ -1420,14 +1717,16 @@ export default function TaskflowDashboard() {
                   <span>{project.name}</span>
                   <span>{project.openTaskCount}</span>
                 </button>
-                <button
-                  type="button"
-                  className="workspace-spaceAction"
-                  onClick={() => handleProjectEdit(project)}
-                  aria-label={`Edit ${project.name}`}
-                >
-                  •••
-                </button>
+                {canManageProjects ? (
+                  <button
+                    type="button"
+                    className="workspace-spaceAction"
+                    onClick={() => handleProjectEdit(project)}
+                    aria-label={`Edit ${project.name}`}
+                  >
+                    •••
+                  </button>
+                ) : null}
               </div>
             ))}
           </div>
@@ -1442,7 +1741,8 @@ export default function TaskflowDashboard() {
                 <span>{currentUser?.companyName || "No company"}</span>
                 <span>{currentWorkspaceUser.telegramNumber || "No Telegram number"}</span>
                 <span>
-                  {currentWorkspaceUser.role} • Telegram: {currentWorkspaceUser.telegramConnected ? "Connected" : "Not connected"}
+                  {currentWorkspaceUser.roleName} • Telegram:{" "}
+                  {currentWorkspaceUser.telegramConnected ? "Connected" : "Not connected"}
                 </span>
               </div>
             </div>
@@ -1583,25 +1883,27 @@ export default function TaskflowDashboard() {
               <span className="workspace-miniIcon">☰</span>
               <span className="workspace-miniIcon">◎</span>
               <span className="workspace-miniIcon">👥</span>
-              <button
-                type="button"
-                className="workspace-primaryButton"
-                onClick={() => {
-                  setEditingTaskId(null);
-                  setDraft((current) => ({
-                    ...defaultDraft,
-                    projectId: selectedProjectId || projects[0]?.id || current.projectId,
-                    assigneeId: currentUser?.id || users[0]?.id || current.assigneeId,
-                  }));
-                  setSubtaskAssigneeId(currentUser?.id || users[0]?.id || "");
-                  setValidationMessage("");
-                  setRequestError("");
-                  setIsModalOpen(true);
-                  setActiveView("Home");
-                }}
-              >
-                + Task
-              </button>
+              {canManageTasks ? (
+                <button
+                  type="button"
+                  className="workspace-primaryButton"
+                  onClick={() => {
+                    setEditingTaskId(null);
+                    setDraft((current) => ({
+                      ...defaultDraft,
+                      projectId: selectedProjectId || projects[0]?.id || current.projectId,
+                      assigneeId: currentUser?.id || users[0]?.id || current.assigneeId,
+                    }));
+                    setSubtaskAssigneeId(currentUser?.id || users[0]?.id || "");
+                    setValidationMessage("");
+                    setRequestError("");
+                    setIsModalOpen(true);
+                    setActiveView("Home");
+                  }}
+                >
+                  + Task
+                </button>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -2151,17 +2453,18 @@ export default function TaskflowDashboard() {
             <div className="workspace-homeHero workspace-usersHero">
               <div>
                 <p className="workspace-sectionEyebrow">Users</p>
-                <h2 className="workspace-homeTitle">Kelola user, role, dan permission perusahaan.</h2>
+                <h2 className="workspace-homeTitle">Kelola user dan assignment role perusahaan.</h2>
                 <p className="workspace-homeText">
                   Semua user di halaman ini hanya untuk company {currentUser.companyName}. Role
-                  menentukan siapa yang bisa mengelola user dan workspace.
+                  assignment sekarang memakai role custom per company, jadi permission tiap user
+                  bisa dibedakan dengan lebih fleksibel.
                 </p>
               </div>
               <div className="workspace-homeStats workspace-usersStats">
                 <HomeStatCard label="Total Users" value={users.length} />
                 <HomeStatCard
-                  label="Admins"
-                  value={users.filter((user) => user.role !== "MEMBER").length}
+                  label="Role Ready"
+                  value={users.filter((user) => user.roleId).length}
                 />
                 <HomeStatCard
                   label="Telegram Ready"
@@ -2178,32 +2481,21 @@ export default function TaskflowDashboard() {
               <div className="workspace-homePanel workspace-usersPanel">
                 <div className="workspace-homePanelHeader">
                   <div>
-                    <p className="workspace-sectionEyebrow">Permissions</p>
-                    <h3 className="workspace-homePanelTitle">Role matrix</h3>
+                    <p className="workspace-sectionEyebrow">Assignment</p>
+                    <h3 className="workspace-homePanelTitle">Current role access</h3>
                   </div>
                 </div>
                 <div className="workspace-homeList workspace-usersList">
                   <div className="workspace-homeItem static workspace-usersItem">
                     <div>
-                      <p className="workspace-homeItemTitle">SUPERADMINISTRATOR</p>
+                      <p className="workspace-homeItemTitle">{currentUser.roleName}</p>
                       <p className="workspace-homeItemMeta">
-                        Full access ke user management, project, task, dan pengaturan perusahaan.
+                        {currentUser.companyName} • Base level {currentUser.role}
                       </p>
-                    </div>
-                  </div>
-                  <div className="workspace-homeItem static workspace-usersItem">
-                    <div>
-                      <p className="workspace-homeItemTitle">ADMINISTRATOR</p>
                       <p className="workspace-homeItemMeta">
-                        Bisa CRUD user perusahaan dan kelola operasional workspace harian.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="workspace-homeItem static workspace-usersItem">
-                    <div>
-                      <p className="workspace-homeItemTitle">MEMBER</p>
-                      <p className="workspace-homeItemMeta">
-                        Bisa bekerja di task yang diassign, tapi tidak bisa mengelola user.
+                        {currentUser.permissions.length > 0
+                          ? currentUser.permissions.map((permission) => PERMISSION_LABELS[permission]).join(" • ")
+                          : "Belum ada permission aktif."}
                       </p>
                     </div>
                   </div>
@@ -2214,7 +2506,7 @@ export default function TaskflowDashboard() {
                 <div className="workspace-homePanelHeader">
                   <div>
                     <p className="workspace-sectionEyebrow">Access</p>
-                    <h3 className="workspace-homePanelTitle">Current session</h3>
+                    <h3 className="workspace-homePanelTitle">Management gates</h3>
                   </div>
                 </div>
                 <div className="workspace-homeList workspace-usersList">
@@ -2222,12 +2514,12 @@ export default function TaskflowDashboard() {
                     <div>
                       <p className="workspace-homeItemTitle">{currentUser.name}</p>
                       <p className="workspace-homeItemMeta">
-                        {currentUser.companyName} • {currentUser.role}
+                        Users: {canManageUsers ? "Allowed" : "Read only"} • Roles:{" "}
+                        {canManageRoles ? "Allowed" : "Read only"}
                       </p>
                       <p className="workspace-homeItemMeta">
-                        {canManageUsers
-                          ? "Akun ini bisa membuat, mengubah, dan menghapus user."
-                          : "Akun ini hanya bisa melihat daftar user dan permission."}
+                        Projects: {canManageProjects ? "Allowed" : "Read only"} • Tasks:{" "}
+                        {canManageTasks ? "Allowed" : "Read only"}
                       </p>
                     </div>
                   </div>
@@ -2266,7 +2558,7 @@ export default function TaskflowDashboard() {
                           {assignedSubtasks} subtasks
                         </p>
                         <p className="workspace-homeItemMeta">
-                          Role: {user.role} •
+                          Role: {user.roleName} •
                           {" "}
                           Telegram: {user.telegramConnected ? "Connected" : "Not connected"} • Chat ID:{" "}
                           {user.telegramChatId || "Belum diisi"} • Login:{" "}
@@ -2302,6 +2594,133 @@ export default function TaskflowDashboard() {
           </section>
         ) : null}
 
+        {activeView === "Roles" ? (
+          <section className="workspace-home workspace-usersView">
+            <div className="workspace-homeHero workspace-usersHero">
+              <div>
+                <p className="workspace-sectionEyebrow">Roles</p>
+                <h2 className="workspace-homeTitle">CRUD role dan permission matrix per company.</h2>
+                <p className="workspace-homeText">
+                  Setiap role di bawah ini hanya berlaku untuk company {currentUser.companyName}.
+                  Kamu bisa buat role custom, pilih base access, lalu aktifkan permission yang
+                  dibutuhkan tanpa mencampur data antar perusahaan.
+                </p>
+              </div>
+              <div className="workspace-homeStats workspace-usersStats">
+                <HomeStatCard label="Total Roles" value={roles.length} />
+                <HomeStatCard label="System Roles" value={roles.filter((role) => role.isSystem).length} />
+                <HomeStatCard label="Custom Roles" value={roles.filter((role) => !role.isSystem).length} />
+                <HomeStatCard
+                  label="Manage Roles"
+                  value={canManageRoles ? 1 : 0}
+                />
+              </div>
+            </div>
+
+            <div className="workspace-homeGrid workspace-usersGrid">
+              <div className="workspace-homePanel workspace-usersPanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Catalog</p>
+                    <h3 className="workspace-homePanelTitle">Permission matrix</h3>
+                  </div>
+                </div>
+                <div className="workspace-homeList workspace-usersList">
+                  {(Object.keys(PERMISSION_LABELS) as PermissionKey[]).map((permission) => (
+                    <div key={permission} className="workspace-homeItem static workspace-usersItem">
+                      <div>
+                        <p className="workspace-homeItemTitle">{PERMISSION_LABELS[permission]}</p>
+                        <p className="workspace-homeItemMeta">
+                          {roles
+                            .filter((role) => role.permissions.includes(permission))
+                            .map((role) => role.name)
+                            .join(" • ") || "Belum dipakai role mana pun"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="workspace-homePanel workspace-usersPanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Session</p>
+                    <h3 className="workspace-homePanelTitle">Your current access</h3>
+                  </div>
+                </div>
+                <div className="workspace-homeList workspace-usersList">
+                  <div className="workspace-homeItem static workspace-usersItem">
+                    <div>
+                      <p className="workspace-homeItemTitle">{currentUser.roleName}</p>
+                      <p className="workspace-homeItemMeta">
+                        {currentUser.name} • Base level {currentUser.role}
+                      </p>
+                      <p className="workspace-homeItemMeta">
+                        {canManageRoles
+                          ? "Akun ini bisa CRUD role dan mengubah permission matrix."
+                          : "Akun ini hanya bisa melihat permission matrix."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="workspace-homePanel workspace-usersPanel workspace-usersDirectory">
+              <div className="workspace-homePanelHeader">
+                <div>
+                  <p className="workspace-sectionEyebrow">Directory</p>
+                  <h3 className="workspace-homePanelTitle">Company roles and assignments</h3>
+                </div>
+                {canManageRoles ? (
+                  <button type="button" className="workspace-primaryButton" onClick={openCreateRoleModal}>
+                    + Role
+                  </button>
+                ) : null}
+              </div>
+              <div className="workspace-homeList workspace-usersList">
+                {roles.map((role) => (
+                  <div key={role.id} className="workspace-homeItem static workspace-usersItem">
+                    <div>
+                      <p className="workspace-homeItemTitle">
+                        {role.name} {role.isSystem ? "• System" : "• Custom"}
+                      </p>
+                      <p className="workspace-homeItemMeta">
+                        Base level: {role.baseRole} • {role.userCount} users
+                      </p>
+                      <p className="workspace-homeItemMeta">
+                        {role.description || "Tanpa deskripsi"} •{" "}
+                        {role.permissions.map((permission) => PERMISSION_LABELS[permission]).join(" • ")}
+                      </p>
+                    </div>
+                    <div className="workspace-userActions">
+                      {canManageRoles ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRoleEdit(role)}
+                          className="workspace-ghostButton"
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {canManageRoles ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRoleDelete(role.id)}
+                          className="workspace-dangerButton"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         {activeView !== "Home" &&
         activeView !== "Dashboard" &&
         activeView !== "Inbox" &&
@@ -2313,7 +2732,8 @@ export default function TaskflowDashboard() {
         activeView !== "Whiteboards" &&
         activeView !== "Goals" &&
         activeView !== "Timesheet" &&
-        activeView !== "Users" ? (
+        activeView !== "Users" &&
+        activeView !== "Roles" ? (
           <section className="workspace-home">
             <div className="workspace-homePanel">
               <div className="workspace-homePanelHeader">
@@ -2741,18 +3161,20 @@ export default function TaskflowDashboard() {
                   <label className="workspace-modalFieldPill">
                     <span>Role</span>
                     <select
-                      value={userDraft.role}
+                      value={userDraft.roleId}
                       onChange={(event) =>
                         setUserDraft((current) => ({
                           ...current,
-                          role: event.target.value as UserDraft["role"],
+                          roleId: event.target.value,
                         }))
                       }
                       className="workspace-modalFieldControl"
                     >
-                      <option value="MEMBER">Member</option>
-                      <option value="ADMINISTRATOR">Administrator</option>
-                      <option value="SUPERADMINISTRATOR">Superadministrator</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name} ({role.baseRole})
+                        </option>
+                      ))}
                     </select>
                   </label>
 
@@ -2817,6 +3239,153 @@ export default function TaskflowDashboard() {
                     disabled={isUserSaving}
                   >
                     {isUserSaving ? "Saving..." : editingUserId ? "Save User" : "Create User"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isRoleModalOpen ? (
+        <div className="workspace-modalOverlay" onClick={resetRoleDraft}>
+          <div
+            className="workspace-modal workspace-projectModal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="workspace-modalHeader">
+              <div>
+                <p className="workspace-sectionEyebrow">Role</p>
+                <h2 className="workspace-sectionTitle">
+                  {editingRoleId ? "Edit role" : "Create role"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={resetRoleDraft}
+                className="workspace-modalIconButton"
+                aria-label="Close role modal"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="workspace-taskModalForm" onSubmit={handleRoleSubmit}>
+              <div className="workspace-taskModalBody">
+                <div className="workspace-modalFieldBlock">
+                  <label htmlFor={`${titleId}-role-name`} className="workspace-modalFieldLabel">
+                    Role Name
+                  </label>
+                  <input
+                    id={`${titleId}-role-name`}
+                    value={roleDraft.name}
+                    onChange={(event) =>
+                      setRoleDraft((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Project Coordinator"
+                    className="workspace-input workspace-modalTitleInput"
+                  />
+                </div>
+
+                <div className="workspace-modalFieldBlock">
+                  <label htmlFor={`${titleId}-role-description`} className="workspace-modalFieldLabel">
+                    Description
+                  </label>
+                  <input
+                    id={`${titleId}-role-description`}
+                    value={roleDraft.description}
+                    onChange={(event) =>
+                      setRoleDraft((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    placeholder="Role untuk operasional project dan assignment lintas tim."
+                    className="workspace-input workspace-modalTitleInput"
+                  />
+                </div>
+
+                <div className="workspace-taskModalPills">
+                  <label className="workspace-modalFieldPill">
+                    <span>Base level</span>
+                    <select
+                      value={roleDraft.baseRole}
+                      onChange={(event) =>
+                        setRoleDraft((current) => ({
+                          ...current,
+                          baseRole: event.target.value as RoleDraft["baseRole"],
+                        }))
+                      }
+                      className="workspace-modalFieldControl"
+                    >
+                      <option value="MEMBER">Member</option>
+                      <option value="ADMINISTRATOR">Administrator</option>
+                      <option value="SUPERADMINISTRATOR">Superadministrator</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="workspace-modalFieldBlock">
+                  <label className="workspace-modalFieldLabel">Permissions</label>
+                  <div className="workspace-homeList workspace-usersList">
+                    {(Object.keys(PERMISSION_LABELS) as PermissionKey[]).map((permission) => {
+                      const checked = roleDraft.permissions.includes(permission);
+
+                      return (
+                        <label key={permission} className="workspace-homeItem static workspace-usersItem">
+                          <div>
+                            <p className="workspace-homeItemTitle">{PERMISSION_LABELS[permission]}</p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setRoleDraft((current) => ({
+                                ...current,
+                                permissions: checked
+                                  ? current.permissions.filter((item) => item !== permission)
+                                  : [...current.permissions, permission],
+                              }))
+                            }
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {roleValidationMessage ? (
+                  <p className="workspace-validation">{roleValidationMessage}</p>
+                ) : null}
+                {roleRequestError ? <p className="workspace-validation">{roleRequestError}</p> : null}
+              </div>
+
+              <div className="workspace-modalFooter">
+                <div className="workspace-modalFooterActions">
+                  {editingRoleId ? (
+                    <button
+                      type="button"
+                      className="workspace-dangerButton"
+                      onClick={() => handleRoleDelete(editingRoleId)}
+                    >
+                      Delete Role
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="workspace-modalFooterActions">
+                  <button type="button" className="workspace-ghostButton" onClick={resetRoleDraft}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="workspace-primaryButton workspace-modalSubmitButton"
+                    disabled={isRoleSaving}
+                  >
+                    {isRoleSaving ? "Saving..." : editingRoleId ? "Save Role" : "Create Role"}
                   </button>
                 </div>
               </div>

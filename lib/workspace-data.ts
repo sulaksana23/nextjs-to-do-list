@@ -1,7 +1,20 @@
-import { Prisma, TodoTaskPriority, TodoTaskStatus, TodoUserRole } from "@prisma/client";
+import {
+  Prisma,
+  TodoPermission,
+  TodoTaskPriority,
+  TodoTaskStatus,
+  TodoUserRole,
+} from "@prisma/client";
 import type { SessionUser } from "./auth";
 import { hashPassword, normalizeTelegramNumber } from "./auth";
 import { prisma } from "./prisma";
+import {
+  ALL_PERMISSIONS,
+  ensureCompanySystemRoles,
+  getCompanySystemRole,
+  getDefaultPermissionsForBaseRole,
+  getDefaultRoleNameForBaseRole,
+} from "./roles";
 import { createTelegramConnectCode } from "./telegram-connect";
 import { sendTelegramMessage } from "./telegram";
 import { cleanupLegacyUsers } from "./user-cleanup";
@@ -11,11 +24,25 @@ export type WorkspaceUser = {
   name: string;
   initials: string;
   tone: string;
+  roleId: string;
   role: TodoUserRole;
+  roleName: string;
+  permissions: TodoPermission[];
   telegramNumber: string;
   telegramChatId: string;
   telegramConnected: boolean;
   hasPassword: boolean;
+};
+
+export type WorkspaceRole = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  baseRole: TodoUserRole;
+  permissions: TodoPermission[];
+  userCount: number;
+  isSystem: boolean;
 };
 
 export type WorkspaceProject = {
@@ -54,6 +81,8 @@ export type WorkspacePayload = {
     id: string;
     name: string;
   };
+  permissions: TodoPermission[];
+  roles: WorkspaceRole[];
   users: WorkspaceUser[];
   projects: WorkspaceProject[];
   tasks: WorkspaceTask[];
@@ -86,6 +115,14 @@ export type UserInput = {
   color?: string;
   password?: string;
   role?: TodoUserRole;
+  roleId?: string;
+};
+
+export type RoleInput = {
+  name: string;
+  description?: string;
+  baseRole?: TodoUserRole;
+  permissions?: TodoPermission[];
 };
 
 const workspaceInclude = {
@@ -107,6 +144,14 @@ function slugifyProjectName(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "project";
+}
+
+function slugifyRoleName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "role";
 }
 
 function deriveInitials(value: string) {
@@ -177,6 +222,53 @@ async function requireCompanyUser(userId: string, companyId: string) {
   return user;
 }
 
+async function requireCompanyRole(roleId: string, companyId: string) {
+  const role = await prisma.todoRole.findFirst({
+    where: {
+      id: roleId,
+      companyId,
+    },
+    include: {
+      _count: {
+        select: {
+          users: true,
+        },
+      },
+    },
+  });
+
+  if (!role) {
+    throw new Error("Role tidak ditemukan untuk perusahaan ini.");
+  }
+
+  return role;
+}
+
+async function resolveCompanyRoleAssignment(
+  companyId: string,
+  roleId?: string,
+  fallbackRole?: TodoUserRole,
+) {
+  await ensureCompanySystemRoles(companyId);
+
+  if (roleId) {
+    return requireCompanyRole(roleId, companyId);
+  }
+
+  const systemRole = await getCompanySystemRole(companyId, fallbackRole ?? "MEMBER");
+
+  if (!systemRole) {
+    throw new Error("Role default perusahaan belum tersedia.");
+  }
+
+  return {
+    ...systemRole,
+    _count: {
+      users: 0,
+    },
+  };
+}
+
 function toPriority(value: WorkspaceTask["priority"]): TodoTaskPriority {
   if (value === "High") {
     return "HIGH";
@@ -230,6 +322,11 @@ function mapUser(user: {
   name: string;
   initials: string;
   color: string;
+  roleId: string | null;
+  workspaceRole: {
+    name: string;
+    permissions: TodoPermission[];
+  } | null;
   role: TodoUserRole;
   telegramNumber: string | null;
   telegramChatId: string | null;
@@ -241,11 +338,38 @@ function mapUser(user: {
     name: user.name,
     initials: user.initials,
     tone: user.color,
+    roleId: user.roleId ?? "",
     role: user.role,
+    roleName: user.workspaceRole?.name ?? getDefaultRoleNameForBaseRole(user.role),
+    permissions: user.workspaceRole?.permissions ?? getDefaultPermissionsForBaseRole(user.role),
     telegramNumber: user.telegramNumber ?? "",
     telegramChatId: user.telegramChatId ?? "",
     telegramConnected: Boolean(user.telegramChatId),
     hasPassword: Boolean(user.passwordHash),
+  };
+}
+
+function mapRole(role: {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  baseRole: TodoUserRole;
+  permissions: TodoPermission[];
+  isSystem: boolean;
+  _count: {
+    users: number;
+  };
+}): WorkspaceRole {
+  return {
+    id: role.id,
+    name: role.name,
+    slug: role.slug,
+    description: role.description ?? "",
+    baseRole: role.baseRole,
+    permissions: role.permissions,
+    userCount: role._count.users,
+    isSystem: role.isSystem,
   };
 }
 
@@ -381,14 +505,38 @@ async function notifyTaskAssignmentSafely(
 
 export async function getWorkspaceData(currentUser: SessionUser): Promise<WorkspacePayload> {
   await cleanupLegacyUsers();
+  await ensureCompanySystemRoles(currentUser.companyId);
 
-  const [users, projects, tasks] = await Promise.all([
+  const [roles, users, projects, tasks] = await Promise.all([
+    prisma.todoRole.findMany({
+      where: {
+        companyId: currentUser.companyId,
+      },
+      include: {
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          isSystem: "desc",
+        },
+        {
+          createdAt: "asc",
+        },
+      ],
+    }),
     prisma.todoUser.findMany({
       where: {
         companyId: currentUser.companyId,
         telegramNumber: {
           not: null,
         },
+      },
+      include: {
+        workspaceRole: true,
       },
       orderBy: {
         name: "asc",
@@ -432,6 +580,8 @@ export async function getWorkspaceData(currentUser: SessionUser): Promise<Worksp
       id: currentUser.companyId,
       name: currentUser.companyName,
     },
+    permissions: ALL_PERMISSIONS,
+    roles: roles.map(mapRole),
     users: users.map(mapUser),
     projects: projects.map(mapProject),
     tasks: tasks.map(mapTask),
@@ -691,6 +841,153 @@ export async function deleteProject(currentUser: SessionUser, projectId: string)
   });
 }
 
+export async function createRole(currentUser: SessionUser, input: RoleInput) {
+  await ensureCompanySystemRoles(currentUser.companyId);
+
+  const name = input.name.trim();
+  const description = input.description?.trim() || null;
+  const baseRole = input.baseRole ?? "MEMBER";
+  const permissions =
+    input.permissions?.filter((permission): permission is TodoPermission =>
+      ALL_PERMISSIONS.includes(permission),
+    ) ?? getDefaultPermissionsForBaseRole(baseRole);
+
+  if (!name) {
+    throw new Error("Nama role wajib diisi.");
+  }
+
+  if (permissions.length === 0) {
+    throw new Error("Minimal pilih satu permission.");
+  }
+
+  const baseSlug = slugifyRoleName(name);
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (
+    await prisma.todoRole.findFirst({
+      where: {
+        companyId: currentUser.companyId,
+        slug,
+      },
+    })
+  ) {
+    counter += 1;
+    slug = `${baseSlug}-${counter}`;
+  }
+
+  const role = await prisma.todoRole.create({
+    data: {
+      companyId: currentUser.companyId,
+      name,
+      slug,
+      description,
+      baseRole,
+      permissions,
+    },
+    include: {
+      _count: {
+        select: {
+          users: true,
+        },
+      },
+    },
+  });
+
+  return mapRole(role);
+}
+
+export async function updateRole(currentUser: SessionUser, roleId: string, input: RoleInput) {
+  await ensureCompanySystemRoles(currentUser.companyId);
+  const current = await requireCompanyRole(roleId, currentUser.companyId);
+  const name = input.name.trim();
+  const description = input.description?.trim() || null;
+  const baseRole = input.baseRole ?? current.baseRole;
+  const permissions =
+    input.permissions?.filter((permission): permission is TodoPermission =>
+      ALL_PERMISSIONS.includes(permission),
+    ) ?? current.permissions;
+
+  if (!name) {
+    throw new Error("Nama role wajib diisi.");
+  }
+
+  if (permissions.length === 0) {
+    throw new Error("Minimal pilih satu permission.");
+  }
+
+  const baseSlug = slugifyRoleName(name);
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (true) {
+    const existing = await prisma.todoRole.findFirst({
+      where: {
+        companyId: currentUser.companyId,
+        slug,
+      },
+    });
+
+    if (!existing || existing.id === current.id) {
+      break;
+    }
+
+    counter += 1;
+    slug = `${baseSlug}-${counter}`;
+  }
+
+  const role = await prisma.todoRole.update({
+    where: {
+      id: current.id,
+    },
+    data: {
+      name,
+      slug,
+      description,
+      baseRole,
+      permissions,
+      users: {
+        updateMany: {
+          where: {
+            roleId: current.id,
+          },
+          data: {
+            role: baseRole,
+          },
+        },
+      },
+    },
+    include: {
+      _count: {
+        select: {
+          users: true,
+        },
+      },
+    },
+  });
+
+  return mapRole(role);
+}
+
+export async function deleteRole(currentUser: SessionUser, roleId: string) {
+  await ensureCompanySystemRoles(currentUser.companyId);
+  const role = await requireCompanyRole(roleId, currentUser.companyId);
+
+  if (role.isSystem) {
+    throw new Error("Role system bawaan tidak bisa dihapus.");
+  }
+
+  if (role._count.users > 0) {
+    throw new Error("Role ini masih dipakai user. Pindahkan user ke role lain dulu.");
+  }
+
+  await prisma.todoRole.delete({
+    where: {
+      id: role.id,
+    },
+  });
+}
+
 export async function createUser(currentUser: SessionUser, input: UserInput) {
   await cleanupLegacyUsers();
 
@@ -698,6 +995,11 @@ export async function createUser(currentUser: SessionUser, input: UserInput) {
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
   const telegramChatId = input.telegramChatId?.trim() || null;
   const password = input.password?.trim() || "";
+  const assignedRole = await resolveCompanyRoleAssignment(
+    currentUser.companyId,
+    input.roleId,
+    input.role ?? "MEMBER",
+  );
 
   if (!name) {
     throw new Error("Nama user wajib diisi.");
@@ -720,14 +1022,18 @@ export async function createUser(currentUser: SessionUser, input: UserInput) {
   const user = await prisma.todoUser.create({
     data: {
       companyId: currentUser.companyId,
+      roleId: assignedRole.id,
       name,
       initials: deriveInitials(name),
       color: resolveUserColor(name, input.color),
-      role: input.role ?? "MEMBER",
+      role: assignedRole.baseRole,
       telegramNumber,
       telegramChatId,
       telegramConnectCode: await createTelegramConnectCode(),
       passwordHash: password ? hashPassword(password) : null,
+    },
+    include: {
+      workspaceRole: true,
     },
   });
 
@@ -743,6 +1049,11 @@ export async function updateUser(currentUser: SessionUser, userId: string, input
   const telegramNumber = normalizeTelegramNumber(input.telegramNumber);
   const telegramChatId = input.telegramChatId?.trim() || null;
   const password = input.password?.trim() || "";
+  const assignedRole = await resolveCompanyRoleAssignment(
+    currentUser.companyId,
+    input.roleId,
+    input.role ?? current.role,
+  );
 
   if (!name) {
     throw new Error("Nama user wajib diisi.");
@@ -770,10 +1081,14 @@ export async function updateUser(currentUser: SessionUser, userId: string, input
       name,
       initials: deriveInitials(name),
       color: resolveUserColor(name, input.color),
-      role: input.role ?? current.role,
+      roleId: assignedRole.id,
+      role: assignedRole.baseRole,
       telegramNumber,
       telegramChatId,
       passwordHash: password ? hashPassword(password) : current.passwordHash,
+    },
+    include: {
+      workspaceRole: true,
     },
   });
 

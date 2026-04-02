@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSessionUser } from "@/lib/auth";
+import { requirePermission, requireSessionUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/http";
 import { toggleSubtask } from "@/lib/workspace-data";
 
@@ -12,7 +12,7 @@ type Context = {
 
 export async function PATCH(_request: Request, context: Context) {
   try {
-    const currentUser = await requireSessionUser();
+    const currentUser = requirePermission(await requireSessionUser(), "MANAGE_TASKS");
     const { taskId, subtaskId } = await context.params;
     const task = await toggleSubtask(currentUser, taskId, subtaskId);
     return NextResponse.json({ task });

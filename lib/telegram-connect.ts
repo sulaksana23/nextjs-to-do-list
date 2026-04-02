@@ -29,6 +29,7 @@ export async function ensureTelegramConnectCode(userId: string) {
     },
     include: {
       company: true,
+      workspaceRole: true,
     },
   });
 
@@ -49,6 +50,7 @@ export async function ensureTelegramConnectCode(userId: string) {
     },
     include: {
       company: true,
+      workspaceRole: true,
     },
   });
 }

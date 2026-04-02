@@ -1,7 +1,13 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { TodoUserRole } from "@prisma/client";
+import { TodoPermission, TodoUserRole } from "@prisma/client";
 import { prisma } from "./prisma";
+import {
+  ensureCompanySystemRoles,
+  getCompanySystemRole,
+  getDefaultPermissionsForBaseRole,
+  getDefaultRoleNameForBaseRole,
+} from "./roles";
 import { createTelegramConnectCode, ensureTelegramConnectCode } from "./telegram-connect";
 import { cleanupLegacyUsers } from "./user-cleanup";
 
@@ -12,10 +18,13 @@ export type SessionUser = {
   id: string;
   companyId: string;
   companyName: string;
+  roleId: string;
+  roleName: string;
   name: string;
   initials: string;
   color: string;
   role: TodoUserRole;
+  permissions: TodoPermission[];
   telegramNumber: string;
   telegramChatId: string;
   telegramConnectCode: string;
@@ -55,6 +64,11 @@ function formatSessionUser(user: {
   company: {
     name: string;
   };
+  workspaceRole: {
+    id: string;
+    name: string;
+    permissions: TodoPermission[];
+  } | null;
   name: string;
   initials: string;
   color: string;
@@ -67,10 +81,13 @@ function formatSessionUser(user: {
     id: user.id,
     companyId: user.companyId,
     companyName: user.company.name,
+    roleId: user.workspaceRole?.id ?? "",
+    roleName: user.workspaceRole?.name ?? getDefaultRoleNameForBaseRole(user.role),
     name: user.name,
     initials: user.initials,
     color: user.color,
     role: user.role,
+    permissions: user.workspaceRole?.permissions ?? getDefaultPermissionsForBaseRole(user.role),
     telegramNumber: user.telegramNumber ?? "",
     telegramChatId: user.telegramChatId ?? "",
     telegramConnectCode: user.telegramConnectCode ?? "",
@@ -192,6 +209,7 @@ export async function getSessionUser() {
     },
     include: {
       company: true,
+      workspaceRole: true,
     },
   });
 
@@ -216,8 +234,20 @@ export async function requireSessionUser() {
 }
 
 export function requireUserManagementAccess(user: SessionUser) {
-  if (user.role === "MEMBER") {
-    throw new Error("Hanya administrator atau superadministrator yang bisa mengelola user.");
+  if (!hasPermission(user, "MANAGE_USERS")) {
+    throw new Error("FORBIDDEN:Hanya administrator atau superadministrator yang bisa mengelola user.");
+  }
+
+  return user;
+}
+
+export function hasPermission(user: SessionUser | null | undefined, permission: TodoPermission) {
+  return Boolean(user?.permissions.includes(permission));
+}
+
+export function requirePermission(user: SessionUser, permission: TodoPermission, message?: string) {
+  if (!hasPermission(user, permission)) {
+    throw new Error(`FORBIDDEN:${message ?? "Akun ini tidak punya permission untuk aksi tersebut."}`);
   }
 
   return user;
@@ -236,6 +266,10 @@ export async function loginWithTelegramNumber(input: AuthCredentials) {
   const user = await prisma.todoUser.findUnique({
     where: {
       telegramNumber,
+    },
+    include: {
+      company: true,
+      workspaceRole: true,
     },
   });
 
@@ -311,9 +345,13 @@ export async function registerWithTelegramNumber(input: RegisterInput) {
       },
     }));
 
+  await ensureCompanySystemRoles(company.id);
+  const superadministratorRole = await getCompanySystemRole(company.id, "SUPERADMINISTRATOR");
+
   const user = await prisma.todoUser.create({
     data: {
       companyId: company.id,
+      roleId: superadministratorRole?.id ?? null,
       name,
       initials: deriveInitials(name),
       color: resolveUserColor(name, input.color),
@@ -325,6 +363,7 @@ export async function registerWithTelegramNumber(input: RegisterInput) {
     },
     include: {
       company: true,
+      workspaceRole: true,
     },
   });
 

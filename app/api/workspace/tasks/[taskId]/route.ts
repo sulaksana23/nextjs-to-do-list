@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSessionUser } from "@/lib/auth";
+import { requirePermission, requireSessionUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/http";
 import { deleteTask, updateTask, type TaskInput } from "@/lib/workspace-data";
 
@@ -11,7 +11,7 @@ type Context = {
 
 export async function PATCH(request: Request, context: Context) {
   try {
-    const currentUser = await requireSessionUser();
+    const currentUser = requirePermission(await requireSessionUser(), "MANAGE_TASKS");
     const { taskId } = await context.params;
     const payload = (await request.json()) as TaskInput;
     const result = await updateTask(currentUser, taskId, payload);
@@ -23,7 +23,7 @@ export async function PATCH(request: Request, context: Context) {
 
 export async function DELETE(_request: Request, context: Context) {
   try {
-    const currentUser = await requireSessionUser();
+    const currentUser = requirePermission(await requireSessionUser(), "MANAGE_TASKS");
     const { taskId } = await context.params;
     await deleteTask(currentUser, taskId);
     return NextResponse.json({ ok: true });

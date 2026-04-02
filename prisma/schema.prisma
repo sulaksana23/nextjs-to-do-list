@@ -25,10 +25,21 @@ enum TodoUserRole {
   MEMBER
 }
 
+enum TodoPermission {
+  MANAGE_COMPANY_SETTINGS
+  MANAGE_USERS
+  MANAGE_ROLES
+  MANAGE_PROJECTS
+  MANAGE_TASKS
+  VIEW_REPORTS
+  MANAGE_NOTIFICATIONS
+}
+
 model TodoCompany {
   id        String        @id @default(cuid())
   name      String
   slug      String        @unique
+  roles     TodoRole[]
   users     TodoUser[]
   projects  TodoProject[]
   createdAt DateTime      @default(now())
@@ -37,10 +48,31 @@ model TodoCompany {
   @@map("todo_companies")
 }
 
+model TodoRole {
+  id          String           @id @default(cuid())
+  companyId   String
+  company     TodoCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String?
+  baseRole    TodoUserRole     @default(MEMBER)
+  permissions TodoPermission[]
+  isSystem    Boolean          @default(false)
+  users       TodoUser[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@map("todo_roles")
+}
+
 model TodoUser {
   id                 String         @id @default(cuid())
   companyId          String
   company            TodoCompany    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roleId             String?
+  workspaceRole      TodoRole?      @relation(fields: [roleId], references: [id], onDelete: SetNull)
   name               String
   initials           String
   color              String
@@ -55,6 +87,7 @@ model TodoUser {
   updatedAt          DateTime       @updatedAt
 
   @@index([companyId])
+  @@index([roleId])
   @@map("todo_users")
 }
 
