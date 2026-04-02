@@ -780,6 +780,11 @@ export default function TaskflowDashboard() {
     scopedTasks.filter((task) => task.priority === "Medium").length,
     scopedTasks.filter((task) => task.priority === "Low").length,
   ];
+  const workspaceCrumb = [
+    currentUser?.companyName || "Workspace",
+    activeView === "Home" ? "Workspace" : activeView,
+    activeProject?.name || "Projects",
+  ].join(" / ");
 
   function handleDraftChange<Key extends keyof TaskDraft>(
     field: Key,
@@ -1844,7 +1849,7 @@ export default function TaskflowDashboard() {
         <header className="workspace-topbar">
           <div>
             <p className="workspace-crumb">
-              IT / HO Software Development / {activeProject?.name || "Projects"}
+              {workspaceCrumb}
             </p>
             <h1 className="workspace-title">
               {activeView === "Home"
