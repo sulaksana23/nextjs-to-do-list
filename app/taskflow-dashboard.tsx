@@ -109,6 +109,7 @@ type ActiveView = WorkspaceView | ProductView;
 type DesktopNotificationPermission = NotificationPermission | "unsupported";
 
 const DESKTOP_DEADLINE_NOTIFICATION_INTERVAL_MS = 10 * 60 * 1000;
+const TELEGRAM_REFRESH_NOTIFICATION_INTERVAL_MS = 10 * 60 * 1000;
 
 const WORKSPACE_ITEMS = [
   { label: "Dashboard", icon: "◫" },
@@ -481,6 +482,19 @@ export default function TaskflowDashboard() {
 
     return getDaysLeft(task.dueDate) <= 0;
   });
+  const selectedProjectDueSoonTasks = tasks.filter((task) => {
+    if (
+      task.assigneeId !== currentUser?.id ||
+      task.status === "Done" ||
+      !task.dueDate ||
+      !selectedProjectId ||
+      task.projectId !== selectedProjectId
+    ) {
+      return false;
+    }
+
+    return getDaysLeft(task.dueDate) <= 1;
+  });
 
   const scopedTasks = selectedProjectId
     ? tasks.filter((task) => task.projectId === selectedProjectId)
@@ -731,6 +745,65 @@ export default function TaskflowDashboard() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [currentUser, desktopNotificationPermission, tasks]);
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !currentUser?.telegramChatId ||
+      !selectedProjectId ||
+      selectedProjectDueSoonTasks.length === 0
+    ) {
+      return;
+    }
+
+    const storageKey = getTelegramRefreshNotificationStorageKey(currentUser.id, selectedProjectId);
+    const lastSentAtText = window.localStorage.getItem(storageKey);
+    const lastSentAt = lastSentAtText ? Number(lastSentAtText) : 0;
+
+    if (
+      Number.isFinite(lastSentAt) &&
+      lastSentAt > 0 &&
+      Date.now() - lastSentAt < TELEGRAM_REFRESH_NOTIFICATION_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void fetch("/api/notifications/telegram/workspace-refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        projectId: selectedProjectId,
+      }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = (await response.json()) as {
+            error?: string;
+            detail?: string;
+          };
+
+          throw new Error(payload.detail || payload.error || "Failed to send Telegram reminder.");
+        }
+
+        window.localStorage.setItem(storageKey, String(Date.now()));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+
+        console.error("Failed to auto-send Telegram workspace reminder:", error);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [currentUser?.id, currentUser?.telegramChatId, selectedProjectDueSoonTasks.length, selectedProjectId]);
 
   function addSubtaskToDraft() {
     const title = draft.subtaskInput.trim();
@@ -2989,6 +3062,10 @@ function getDaysLeft(value: string) {
 
 function getDesktopNotificationStorageKey(userId: string) {
   return `todo-flow:desktop-deadline-notifications:${userId}`;
+}
+
+function getTelegramRefreshNotificationStorageKey(userId: string, projectId: string) {
+  return `todo-flow:telegram-workspace-refresh:${userId}:${projectId}`;
 }
 
 function readDesktopNotificationState(userId: string) {
