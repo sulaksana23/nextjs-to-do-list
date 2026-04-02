@@ -2849,24 +2849,70 @@ function AuthShell({
     <main className="auth-shell">
       <section className="auth-panel">
         <div className="auth-showcase">
-          <div className="auth-badge">Todo Flow</div>
-          <p className="workspace-sectionEyebrow">Telegram-Ready Workspace</p>
-          <h1 className="auth-title">Akses workspace multi-company dengan identitas Telegram yang rapi dan aman.</h1>
-          <p className="auth-copy">
-            Tiap perusahaan punya workspace sendiri. User pertama yang register akan otomatis jadi
-            superadministrator, lalu bisa membuat user lain untuk tim perusahaannya.
-          </p>
+          <div>
+            <div className="auth-badge">Todo Flow</div>
+            <p className="workspace-sectionEyebrow">Portfolio-Ready Product Build</p>
+            <h1 className="auth-title">Multi-company task management app dengan arsitektur yang terasa production-ready.</h1>
+            <p className="auth-copy">
+              Project ini menunjukkan kombinasi product thinking, UI system, data modeling,
+              role-based access, dan integrasi notifikasi Telegram dalam satu aplikasi Next.js.
+            </p>
+          </div>
+
+          <div className="auth-proofGrid">
+            <div className="auth-proofCard">
+              <span className="auth-featureLabel">What Recruiters See</span>
+              <strong>Full-stack ownership, bukan cuma CRUD biasa</strong>
+              <p>
+                Ada auth, multi-company isolation, role management, automation, notification flow,
+                dan struktur API yang rapi.
+              </p>
+            </div>
+            <div className="auth-proofCard">
+              <span className="auth-featureLabel">Engineering Scope</span>
+              <strong>Data model, UX, dan operational workflow</strong>
+              <p>
+                Kamu bisa menunjukkan kemampuan merancang schema Prisma, membangun dashboard, dan
+                menghubungkan user workflow ke Telegram.
+              </p>
+            </div>
+          </div>
+
+          <div className="auth-storyList">
+            <div className="auth-storyItem">
+              <span>01</span>
+              <p>Multi-company isolation dengan role hierarchy untuk use case internal tool yang lebih realistis.</p>
+            </div>
+            <div className="auth-storyItem">
+              <span>02</span>
+              <p>Task workflow terhubung ke Telegram, desktop alert, dan cron reminder agar terasa operasional.</p>
+            </div>
+            <div className="auth-storyItem">
+              <span>03</span>
+              <p>UI dashboard dibuat seperti product admin panel, bukan halaman CRUD mentah.</p>
+            </div>
+          </div>
 
           <div className="auth-featureList">
             <div className="auth-featureCard">
-              <span className="auth-featureLabel">Account Access</span>
-              <strong>Login berbasis nomor Telegram</strong>
-              <p>Password tetap dipakai agar akses internal lebih aman.</p>
+              <span className="auth-featureLabel">Multi Company</span>
+              <strong>Company-scoped workspace + role hierarchy</strong>
+              <p>Setiap perusahaan punya user, project, dan task sendiri dengan role terisolasi.</p>
             </div>
             <div className="auth-featureCard">
-              <span className="auth-featureLabel">Assignment Flow</span>
-              <strong>Task dan subtask langsung terhubung</strong>
-              <p>Siap dipakai untuk notifikasi Telegram per user yang di-assign.</p>
+              <span className="auth-featureLabel">Automation</span>
+              <strong>Telegram assignment dan deadline reminder</strong>
+              <p>Task bisa memicu notifikasi desktop, refresh-triggered alerts, dan cron reminder.</p>
+            </div>
+            <div className="auth-featureCard">
+              <span className="auth-featureLabel">Architecture</span>
+              <strong>Next.js Route Handlers + Prisma migration flow</strong>
+              <p>Project sudah punya struktur backend internal yang enak dipelihara dan di-deploy.</p>
+            </div>
+            <div className="auth-featureCard">
+              <span className="auth-featureLabel">UI Direction</span>
+              <strong>Intentional dashboard UI, bukan template polos</strong>
+              <p>Sidebar workspace, compact admin screen, charts, dan task workflow dibuat konsisten.</p>
             </div>
           </div>
         </div>

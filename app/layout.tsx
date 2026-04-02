@@ -13,9 +13,9 @@ const headingFont = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Todo Flow",
+  title: "Todo Flow | Multi-Company Task Management",
   description:
-    "A fast and clean todo template built with Next.js, TypeScript, and Tailwind CSS.",
+    "Production-style multi-company task management app with role-based access, Telegram notifications, deadline reminders, and Prisma-backed Next.js architecture.",
 };
 
 export default function RootLayout({

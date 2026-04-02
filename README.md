@@ -1,37 +1,112 @@
 # Todo Flow
 
-Todo workspace bergaya dark productivity app dengan Next.js App Router, Prisma, PostgreSQL, task modal, subtask, assignment user, dan CRUD project langsung dari sidebar.
+A production-style multi-company task management app built with Next.js 16, React 19, Prisma, PostgreSQL, and Tailwind CSS 4.
+
+The project combines dashboard UI, role-based access control, company-scoped data isolation, Telegram notifications, desktop deadline alerts, and cron-based reminders in one full-stack workspace product.
+
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square)
+![React](https://img.shields.io/badge/React-19-20232A?style=flat-square&logo=react)
+![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat-square&logo=prisma)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?style=flat-square&logo=tailwindcss)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?style=flat-square&logo=postgresql)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)
+
+## Preview
 
 ![Todo Flow Preview](./public/readme-preview.svg)
 
-## Overview
+## Why This Project Stands Out
 
-Project ini dibuat untuk pengalaman mirip workspace app seperti ClickUp:
+- Multi-company architecture with isolated users, projects, and tasks per company
+- Role-based user management with `SUPERADMINISTRATOR`, `ADMINISTRATOR`, and `MEMBER`
+- Telegram assignment notifications plus deadline reminders
+- Desktop notifications for due and overdue tasks
+- Compact admin-style UI with dashboard views, user management, and project organization
+- Prisma-backed backend flow with internal Route Handlers and deployment-ready setup
 
-- sidebar kiri untuk navigasi workspace dan daftar project
-- task list per status: `Hold`, `In Progress`, `Done`
-- create, edit, delete task lewat modal
-- assignee per task
-- subtask per task
-- project sidebar yang pakai data database asli
-- CRUD project langsung dari sidebar
-- dark UI yang compact dan full width
+## Core Features
 
-## Fitur
+- Multi-company workspace onboarding
+- User CRUD with role management
+- Project CRUD scoped by company
+- Task CRUD with subtasks and assignees
+- Task filtering, sorting, and search
+- Telegram connect flow using personal connect code
+- Auto reminders:
+  desktop reminder in browser
+  refresh-triggered Telegram alert
+  scheduled Telegram deadline reminder via cron
+- Compact `Users` management page for roles and permissions
 
-- Dashboard workspace dengan beberapa view: `Home`, `Dashboard`, `Inbox`, `My Tasks`, `Replies`, `Assigned`
-- Multi-company workspace: data user, project, dan task terscope per perusahaan
-- Product section: `Docs`, `Forms`, `Whiteboards`, `Goals`, `Timesheet`
-- Task CRUD
-- Project CRUD
-- User CRUD dengan role: `Superadministrator`, `Administrator`, `Member`
-- Filter task berdasarkan project aktif di sidebar
-- Search task berdasarkan title, description, assignee, subtask, dan project
-- Sort task: `Newest`, `Oldest`, `Priority`, `Due soon`
-- Toggle subtask selesai/belum selesai
-- Group collapse untuk status task
-- API internal berbasis Route Handlers
-- Prisma schema + migration
+## Product Flow
+
+1. User registers with `Company Name`.
+2. First user in a company becomes `SUPERADMINISTRATOR`.
+3. Superadmin or admin creates more users from the `Users` menu.
+4. Team members connect their Telegram account using a connect code.
+5. Assigned tasks and subtasks trigger Telegram notifications.
+6. Due tasks trigger browser alerts and scheduled reminders.
+
+## Demo Credentials
+
+After seeding demo data, you can log in with:
+
+### Nexa Digital
+
+- Superadmin
+  Telegram: `+62895343866012`
+  Password: `bayu-demo-123`
+
+### Riverstone Ops
+
+- Superadmin
+  Telegram: `+6281110003001`
+  Password: `tala-demo-123`
+
+The demo seed also creates:
+
+- 2 companies
+- multiple user roles
+- sample projects
+- active tasks with upcoming deadlines
+
+## Architecture Overview
+
+```text
+Browser UI
+  |
+  v
+Next.js App Router
+  |
+  +-- app/taskflow-dashboard.tsx
+  |     UI state, dashboard, modal flows, notification triggers
+  |
+  +-- app/api/*
+  |     Route Handlers for auth, workspace, Telegram, and reminders
+  |
+  v
+Service Layer
+  |
+  +-- lib/auth.ts
+  +-- lib/workspace-data.ts
+  +-- lib/telegram.ts
+  +-- lib/deadline-notifications.ts
+  +-- lib/telegram-deadline-refresh.ts
+  |
+  v
+Prisma Client
+  |
+  v
+PostgreSQL
+```
+
+## Engineering Decisions
+
+- Next.js App Router is used to keep frontend and backend logic in one product codebase
+- Prisma is the source of truth for schema design, migrations, and query layer
+- Company scoping and role rules are enforced in the data layer, not only in the UI
+- Telegram integration is split into focused helpers to keep the app maintainable
+- Deployment flow is prepared for Vercel with migration and cron support
 
 ## Tech Stack
 
@@ -40,53 +115,11 @@ Project ini dibuat untuk pengalaman mirip workspace app seperti ClickUp:
 - Tailwind CSS 4
 - Prisma 6
 - PostgreSQL
+- ApexCharts
 
-## Struktur Penting
+## Demo Setup
 
-- [app/page.tsx](/home/bayu/todo-app/app/page.tsx)
-  Entry page utama
-- [app/taskflow-dashboard.tsx](/home/bayu/todo-app/app/taskflow-dashboard.tsx)
-  Komponen client utama untuk seluruh workspace UI
-- [app/globals.css](/home/bayu/todo-app/app/globals.css)
-  Styling dark compact workspace
-- [app/api/workspace/route.ts](/home/bayu/todo-app/app/api/workspace/route.ts)
-  `GET` workspace dan `POST` create task
-- [app/api/workspace/tasks/[taskId]/route.ts](/home/bayu/todo-app/app/api/workspace/tasks/[taskId]/route.ts)
-  `PATCH` update task dan `DELETE` hapus task
-- [app/api/workspace/tasks/[taskId]/subtasks/[subtaskId]/route.ts](/home/bayu/todo-app/app/api/workspace/tasks/[taskId]/subtasks/[subtaskId]/route.ts)
-  Toggle status subtask
-- [app/api/workspace/projects/route.ts](/home/bayu/todo-app/app/api/workspace/projects/route.ts)
-  Create project
-- [app/api/workspace/projects/[projectId]/route.ts](/home/bayu/todo-app/app/api/workspace/projects/[projectId]/route.ts)
-  Update dan delete project
-- [lib/workspace-data.ts](/home/bayu/todo-app/lib/workspace-data.ts)
-  Seluruh query dan mutation Prisma untuk workspace
-- [lib/prisma.ts](/home/bayu/todo-app/lib/prisma.ts)
-  Prisma singleton client
-- [prisma/schema.prisma](/home/bayu/todo-app/prisma/schema.prisma)
-  Schema database utama
-- [prisma/migrations/20260401153000_todo_workspace_init/migration.sql](/home/bayu/todo-app/prisma/migrations/20260401153000_todo_workspace_init/migration.sql)
-  Migration awal
-- [prisma/migrations/20260401173000_add_projects/migration.sql](/home/bayu/todo-app/prisma/migrations/20260401173000_add_projects/migration.sql)
-  Migration penambahan tabel project dan relasi task
-
-## Database
-
-Project ini memakai PostgreSQL. Contoh `.env`:
-
-```env
-DATABASE_URL="postgresql://postgres:123456@localhost:5433/next_auth_app?schema=todo_app"
-```
-
-Catatan:
-
-- `schema=todo_app` dipakai supaya tidak bentrok dengan tabel project lain di database yang sama
-- kalau PostgreSQL kamu jalan di port lain, ganti `5433`
-- kalau database belum ada, buat dulu database targetnya
-
-## Installation
-
-Install dependency:
+Install dependencies:
 
 ```bash
 npm install
@@ -98,297 +131,117 @@ Generate Prisma client:
 npx prisma generate
 ```
 
-## Migration
-
-Validasi schema Prisma:
-
-```bash
-npx prisma validate
-```
-
-Apply migration ke database:
+Apply migrations:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-Kalau sedang development dan ingin membuat migration baru:
+Seed demo data:
 
 ```bash
-npx prisma migrate dev --name your_change_name
+npm run db:seed
 ```
 
-## Deploy Ke Vercel
-
-Saat deploy, project ini sekarang otomatis menjalankan:
-
-```bash
-prisma generate && PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 prisma migrate deploy && next build --webpack
-```
-
-Supaya deploy berhasil, pastikan `DATABASE_URL` di Vercel:
-
-- mengarah ke database production yang benar
-- memakai schema yang benar bila kamu tidak ingin pakai `public`
-- bisa diakses dari Vercel
-
-Contoh kalau ingin tetap memakai schema `todo_app`:
-
-```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=todo_app&sslmode=require"
-```
-
-Project ini juga menambahkan fallback di runtime Prisma: kalau `DATABASE_URL` tidak menyertakan parameter `schema`, aplikasi akan otomatis memakai schema `todo_app`.
-
-Environment variable tambahan untuk fitur auth + Telegram:
-
-```env
-AUTH_SECRET="replace-with-a-long-random-secret"
-TELEGRAM_BOT_TOKEN="your-bot-token"
-CRON_SECRET="replace-with-a-long-random-secret"
-DEADLINE_NOTIFICATION_TIME_ZONE="Asia/Makassar"
-```
-
-Catatan:
-
-- login/register sekarang memakai nomor Telegram + password
-- user pertama yang register untuk sebuah perusahaan otomatis menjadi `SUPERADMINISTRATOR`
-- notifikasi Telegram dikirim ke `telegramChatId` user yang di-assign
-- reminder deadline dikirim terjadwal lewat cron ke task yang due hari ini atau sudah lewat deadline
-- setelah update schema, deploy akan menjalankan migration otomatis dari script build
-- advisory lock Prisma dimatikan saat build supaya `prisma migrate deploy` tidak timeout pada koneksi Neon pooler di Vercel
-
-## Koneksi Bot Telegram
-
-Supaya notif assignment masuk ke Telegram:
-
-1. Login ke aplikasi
-2. Salin `Telegram connect code` milik user
-3. Chat ke bot kamu dengan format:
-
-```text
-/connect KODE_KAMU
-```
-
-4. Pastikan webhook bot diarahkan ke:
-
-```text
-https://your-domain.vercel.app/api/telegram/webhook
-```
-
-Setelah bot membalas berhasil terhubung, assignment task dan subtask ke user itu akan mengirim notifikasi otomatis.
-
-## Multi Company dan Role
-
-- saat register, isi `Company Name`
-- perusahaan baru akan dibuat otomatis bila belum ada
-- user pertama pada perusahaan itu otomatis menjadi `SUPERADMINISTRATOR`
-- user berikutnya dibuat dari menu user CRUD di dalam workspace perusahaan tersebut
-- data project, task, dan user hanya terlihat di perusahaan yang sama
-
-## Schedule Reminder Deadline
-
-Project ini sekarang menyediakan endpoint cron:
-
-```text
-GET /api/notifications/deadline
-```
-
-Aturan reminder:
-
-- hanya untuk task yang punya `dueDate`
-- hanya untuk task yang status-nya belum `Done`
-- hanya untuk assignee yang sudah terkoneksi ke Telegram
-- dikirim sekali per hari per task
-- task due hari ini dan task overdue sama-sama akan diingatkan
-
-Untuk deploy di Vercel:
-
-1. Set `CRON_SECRET` di environment project
-2. Pastikan `TELEGRAM_BOT_TOKEN` juga aktif
-3. Deploy dengan file `vercel.json` yang sudah berisi cron schedule
-
-Schedule bawaan saat ini:
-
-```text
-0 2 * * *
-```
-
-Artinya endpoint reminder akan dipanggil setiap hari jam 02:00 UTC, atau jam 10:00 WITA. Jadwal ini aman untuk Vercel Hobby yang membatasi cron harian. Vercel otomatis mengirim header `Authorization: Bearer <CRON_SECRET>` ke route cron ketika `CRON_SECRET` tersedia.
-
-## Menjalankan Project
-
-Jalankan development server:
+Run development server:
 
 ```bash
 npm run dev
 ```
 
-Buka di browser:
+Open:
 
 ```text
 http://localhost:3000
 ```
 
-## Data Model
+## Environment Variables
 
-Model utama:
+Example `.env`:
 
-- `TodoUser`
-- `TodoProject`
-- `TodoTask`
-- `TodoSubtask`
-
-Enum utama:
-
-- `TodoTaskPriority`
-- `TodoTaskStatus`
-
-Relasi penting:
-
-- satu `TodoProject` punya banyak `TodoTask`
-- satu `TodoUser` bisa punya banyak `TodoTask`
-- satu `TodoTask` punya banyak `TodoSubtask`
-
-## Flow Data
-
-1. UI load data dari `GET /api/workspace`
-2. Server ambil user, project, dan task dari Prisma
-3. Sidebar `Spaces` dirender dari tabel `todo_projects`
-4. Task list otomatis terfilter berdasarkan project aktif
-5. Create/update/delete task dan project dikirim lewat API route internal
-
-## API
-
-### Workspace
-
-`GET /api/workspace`
-
-Response:
-
-```json
-{
-  "users": [],
-  "projects": [],
-  "tasks": []
-}
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5433/next_auth_app?schema=todo_app"
+AUTH_SECRET="replace-with-a-long-random-secret"
+TELEGRAM_BOT_TOKEN="replace-with-your-bot-token"
+CRON_SECRET="replace-with-a-long-random-secret"
+DEADLINE_NOTIFICATION_TIME_ZONE="Asia/Makassar"
 ```
 
-### Create Task
+## Telegram Integration
 
-`POST /api/workspace`
+To connect a user with Telegram:
 
-Body:
+1. Log in to the app
+2. Copy the user's `Telegram connect code`
+3. Send it to the bot in this format:
 
-```json
-{
-  "title": "Integrasi PR dengan Budgeting",
-  "description": "Finalisasi mapping transaksi dan approval flow",
-  "dueDate": "2026-04-10",
-  "priority": "High",
-  "projectId": "project_xxx",
-  "assigneeId": "user_bayu",
-  "status": "In Progress",
-  "subtasks": [
-    {
-      "id": "temp-1",
-      "title": "Review API contract",
-      "completed": false
-    }
-  ]
-}
+```text
+/connect YOUR_CODE
 ```
 
-### Update Task
+4. Point your Telegram bot webhook to:
 
-`PATCH /api/workspace/tasks/:taskId`
-
-Body sama seperti create task.
-
-### Delete Task
-
-`DELETE /api/workspace/tasks/:taskId`
-
-### Toggle Subtask
-
-`PATCH /api/workspace/tasks/:taskId/subtasks/:subtaskId`
-
-### Create Project
-
-`POST /api/workspace/projects`
-
-Body:
-
-```json
-{
-  "name": "PR"
-}
+```text
+https://your-domain.vercel.app/api/telegram/webhook
 ```
 
-### Update Project
+## Deadline Reminder Cron
 
-`PATCH /api/workspace/projects/:projectId`
+The project exposes a cron endpoint:
 
-Body:
-
-```json
-{
-  "name": "PR"
-}
+```text
+GET /api/notifications/deadline
 ```
 
-### Delete Project
+Current schedule in `vercel.json`:
 
-`DELETE /api/workspace/projects/:projectId`
-
-Catatan:
-
-- project hanya bisa dihapus kalau belum punya task
-- kalau masih ada task, API akan mengembalikan error aman
-
-## Seed / Sample Data
-
-Migration awal mengisi sample data:
-
-- beberapa user seperti `Bayu`, `Dimas`, `Livia`
-- beberapa task awal
-- beberapa subtask awal
-
-Migration project akan mengubah kategori task lama menjadi project nyata di tabel `todo_projects`.
-
-## Verifikasi
-
-Perintah yang aman dijalankan setelah setup:
-
-```bash
-npm run lint
+```text
+0 2 * * *
 ```
 
-```bash
-npx prisma validate
-```
+That means the deadline reminder runs every day at `02:00 UTC` or `10:00 WITA`.
 
-```bash
-npx prisma generate
-```
+## Project Structure
 
-## Catatan Penggunaan
+- [app/page.tsx](/home/bayu/todo-app/app/page.tsx)
+  app entry page
+- [app/taskflow-dashboard.tsx](/home/bayu/todo-app/app/taskflow-dashboard.tsx)
+  main client-side dashboard and workspace UI
+- [app/globals.css](/home/bayu/todo-app/app/globals.css)
+  global styling and dashboard layout system
+- [app/api/workspace/route.ts](/home/bayu/todo-app/app/api/workspace/route.ts)
+  workspace fetch and task creation
+- [app/api/workspace/users/route.ts](/home/bayu/todo-app/app/api/workspace/users/route.ts)
+  create users inside current company
+- [app/api/notifications/deadline/route.ts](/home/bayu/todo-app/app/api/notifications/deadline/route.ts)
+  scheduled Telegram reminder endpoint
+- [lib/auth.ts](/home/bayu/todo-app/lib/auth.ts)
+  session auth and company-aware user session
+- [lib/workspace-data.ts](/home/bayu/todo-app/lib/workspace-data.ts)
+  company-scoped service layer for workspace operations
+- [prisma/schema.prisma](/home/bayu/todo-app/prisma/schema.prisma)
+  database schema
+- [prisma/seed.cjs](/home/bayu/todo-app/prisma/seed.cjs)
+  demo seed for recruiters and reviewers
 
-- kalau database mati, UI tetap bisa terbuka tetapi data API akan gagal dimuat
-- modal task sekarang memakai field `Task Name` yang jelas
-- sidebar `Spaces` sekarang tidak lagi hardcoded, tapi pakai data project asli
-- task form sekarang memilih project dari database, bukan mengetik category manual
+## What This Project Demonstrates
 
-## Roadmap Lanjutan
+- Full-stack product thinking
+- Dashboard UI implementation
+- Auth and access control
+- Multi-tenant style data scoping
+- External notification workflow integration
+- Production-minded deployment flow
 
-- auth dan permission user
-- drag and drop task antar status
-- inline editing row
-- dashboard chart yang real
-- activity log / comments
-- server actions untuk mutation
-- optimistic update yang lebih halus
+## If I Had More Time
+
+- automated tests for service and route layers
+- audit logs for admin actions
+- invitation flow for joining an existing company
+- richer permission matrix beyond role-only access
+- analytics and observability
+- splitting the large dashboard component into smaller modules
 
 ## License
 
-Internal project / workspace app.
+This project is licensed under the [MIT License](./LICENSE).

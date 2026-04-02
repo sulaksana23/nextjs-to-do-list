@@ -1401,6 +1401,67 @@ a {
   gap: 0.8rem;
 }
 
+.auth-proofGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.auth-proofCard {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(28, 29, 34, 0.92), rgba(18, 18, 22, 0.76));
+  padding: 1rem;
+}
+
+.auth-proofCard strong {
+  display: block;
+  margin-top: 0.42rem;
+  font-size: 0.98rem;
+}
+
+.auth-proofCard p {
+  margin: 0.42rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.auth-storyList {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.auth-storyItem {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.7rem;
+}
+
+.auth-storyItem span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  min-height: 2rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.auth-storyItem p {
+  margin: 0.08rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
 .auth-featureCard {
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -1617,6 +1678,14 @@ a {
 
   .auth-featureList {
     grid-template-columns: 1fr;
+  }
+
+  .auth-proofGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-storyItem {
+    grid-template-columns: 32px minmax(0, 1fr);
   }
 
   .auth-cardHeader,
