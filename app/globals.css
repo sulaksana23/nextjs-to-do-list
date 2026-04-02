@@ -980,6 +980,91 @@ a {
   font-size: 0.8rem;
 }
 
+.workspace-usersView {
+  padding: 0.6rem;
+}
+
+.workspace-usersHero {
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.workspace-usersStats {
+  gap: 0.45rem;
+}
+
+.workspace-usersView .workspace-homeTitle {
+  margin-top: 0.22rem;
+  font-size: 1.08rem;
+}
+
+.workspace-usersView .workspace-homeText {
+  margin-top: 0.28rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.workspace-usersView .workspace-homeStat {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+}
+
+.workspace-usersView .workspace-homeStatLabel {
+  font-size: 0.64rem;
+}
+
+.workspace-usersView .workspace-homeStatValue {
+  margin-top: 0.18rem;
+  font-size: 1.05rem;
+}
+
+.workspace-usersGrid {
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.workspace-usersPanel {
+  padding: 0.62rem;
+}
+
+.workspace-usersDirectory {
+  margin-top: 0.65rem;
+}
+
+.workspace-usersView .workspace-homePanelHeader {
+  gap: 0.7rem;
+}
+
+.workspace-usersView .workspace-homePanelTitle {
+  margin-top: 0.16rem;
+  font-size: 0.84rem;
+}
+
+.workspace-usersView .workspace-homeList {
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+
+.workspace-usersItem {
+  gap: 0.55rem;
+  border-radius: 0.66rem;
+  padding: 0.48rem 0.7rem;
+}
+
+.workspace-usersView .workspace-homeItemTitle {
+  font-size: 0.78rem;
+}
+
+.workspace-usersView .workspace-homeItemMeta {
+  margin-top: 0.14rem;
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.workspace-usersView .workspace-userActions {
+  gap: 0.35rem;
+}
+
 .workspace-tableHead,
 .workspace-row {
   display: grid;

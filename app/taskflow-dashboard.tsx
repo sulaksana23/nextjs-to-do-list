@@ -2147,8 +2147,8 @@ export default function TaskflowDashboard() {
         ) : null}
 
         {activeView === "Users" ? (
-          <section className="workspace-home">
-            <div className="workspace-homeHero">
+          <section className="workspace-home workspace-usersView">
+            <div className="workspace-homeHero workspace-usersHero">
               <div>
                 <p className="workspace-sectionEyebrow">Users</p>
                 <h2 className="workspace-homeTitle">Kelola user, role, dan permission perusahaan.</h2>
@@ -2157,7 +2157,7 @@ export default function TaskflowDashboard() {
                   menentukan siapa yang bisa mengelola user dan workspace.
                 </p>
               </div>
-              <div className="workspace-homeStats">
+              <div className="workspace-homeStats workspace-usersStats">
                 <HomeStatCard label="Total Users" value={users.length} />
                 <HomeStatCard
                   label="Admins"
@@ -2174,16 +2174,16 @@ export default function TaskflowDashboard() {
               </div>
             </div>
 
-            <div className="workspace-homeGrid">
-              <div className="workspace-homePanel">
+            <div className="workspace-homeGrid workspace-usersGrid">
+              <div className="workspace-homePanel workspace-usersPanel">
                 <div className="workspace-homePanelHeader">
                   <div>
                     <p className="workspace-sectionEyebrow">Permissions</p>
                     <h3 className="workspace-homePanelTitle">Role matrix</h3>
                   </div>
                 </div>
-                <div className="workspace-homeList">
-                  <div className="workspace-homeItem static">
+                <div className="workspace-homeList workspace-usersList">
+                  <div className="workspace-homeItem static workspace-usersItem">
                     <div>
                       <p className="workspace-homeItemTitle">SUPERADMINISTRATOR</p>
                       <p className="workspace-homeItemMeta">
@@ -2191,7 +2191,7 @@ export default function TaskflowDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="workspace-homeItem static">
+                  <div className="workspace-homeItem static workspace-usersItem">
                     <div>
                       <p className="workspace-homeItemTitle">ADMINISTRATOR</p>
                       <p className="workspace-homeItemMeta">
@@ -2199,7 +2199,7 @@ export default function TaskflowDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="workspace-homeItem static">
+                  <div className="workspace-homeItem static workspace-usersItem">
                     <div>
                       <p className="workspace-homeItemTitle">MEMBER</p>
                       <p className="workspace-homeItemMeta">
@@ -2210,15 +2210,15 @@ export default function TaskflowDashboard() {
                 </div>
               </div>
 
-              <div className="workspace-homePanel">
+              <div className="workspace-homePanel workspace-usersPanel">
                 <div className="workspace-homePanelHeader">
                   <div>
                     <p className="workspace-sectionEyebrow">Access</p>
                     <h3 className="workspace-homePanelTitle">Current session</h3>
                   </div>
                 </div>
-                <div className="workspace-homeList">
-                  <div className="workspace-homeItem static">
+                <div className="workspace-homeList workspace-usersList">
+                  <div className="workspace-homeItem static workspace-usersItem">
                     <div>
                       <p className="workspace-homeItemTitle">{currentUser.name}</p>
                       <p className="workspace-homeItemMeta">
@@ -2235,7 +2235,7 @@ export default function TaskflowDashboard() {
               </div>
             </div>
 
-            <div className="workspace-homePanel" style={{ marginTop: "1rem" }}>
+            <div className="workspace-homePanel workspace-usersPanel workspace-usersDirectory">
               <div className="workspace-homePanelHeader">
                 <div>
                   <p className="workspace-sectionEyebrow">Directory</p>
@@ -2247,7 +2247,7 @@ export default function TaskflowDashboard() {
                   </button>
                 ) : null}
               </div>
-              <div className="workspace-homeList">
+              <div className="workspace-homeList workspace-usersList">
                 {users.map((user) => {
                   const total = tasks.filter((task) => task.assigneeId === user.id).length;
                   const assignedSubtasks = tasks.reduce(
@@ -2258,7 +2258,7 @@ export default function TaskflowDashboard() {
                   );
 
                   return (
-                    <div key={user.id} className="workspace-homeItem static">
+                    <div key={user.id} className="workspace-homeItem static workspace-usersItem">
                       <div>
                         <p className="workspace-homeItemTitle">{user.name}</p>
                         <p className="workspace-homeItemMeta">
