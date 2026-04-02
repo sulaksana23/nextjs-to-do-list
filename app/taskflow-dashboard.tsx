@@ -108,6 +108,8 @@ type ProductView = "Docs" | "Forms" | "Whiteboards" | "Goals" | "Timesheet";
 type ActiveView = WorkspaceView | ProductView;
 type DesktopNotificationPermission = NotificationPermission | "unsupported";
 
+const DESKTOP_DEADLINE_NOTIFICATION_INTERVAL_MS = 10 * 60 * 1000;
+
 const WORKSPACE_ITEMS = [
   { label: "Dashboard", icon: "◫" },
   { label: "Home", icon: "⌂" },
@@ -666,7 +668,7 @@ export default function TaskflowDashboard() {
     }
 
     const notifyDueTasks = () => {
-      const todayKey = getLocalDateKey();
+      const now = Date.now();
       const sentNotifications = readDesktopNotificationState(currentUser.id);
       const nextNotifications = { ...sentNotifications };
 
@@ -681,9 +683,12 @@ export default function TaskflowDashboard() {
           continue;
         }
 
-        const notificationKey = `${task.id}:${todayKey}`;
+        const notificationKey = task.id;
 
-        if (sentNotifications[notificationKey]) {
+        if (
+          typeof sentNotifications[notificationKey] === "number" &&
+          now - sentNotifications[notificationKey] < DESKTOP_DEADLINE_NOTIFICATION_INTERVAL_MS
+        ) {
           continue;
         }
 
@@ -692,14 +697,14 @@ export default function TaskflowDashboard() {
             daysLeft < 0
               ? `${task.title} sudah lewat deadline. Project ${task.projectName}.`
               : `${task.title} masuk deadline hari ini. Project ${task.projectName}.`,
-          tag: `deadline-${task.id}-${todayKey}`,
+          tag: `deadline-${task.id}`,
         });
 
         notification.onclick = () => {
           window.focus();
         };
 
-        nextNotifications[notificationKey] = true;
+        nextNotifications[notificationKey] = now;
       }
 
       writeDesktopNotificationState(currentUser.id, nextNotifications);
@@ -707,7 +712,10 @@ export default function TaskflowDashboard() {
 
     notifyDueTasks();
 
-    const intervalId = window.setInterval(notifyDueTasks, 60_000);
+    const intervalId = window.setInterval(
+      notifyDueTasks,
+      DESKTOP_DEADLINE_NOTIFICATION_INTERVAL_MS,
+    );
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         notifyDueTasks();
@@ -2979,40 +2987,34 @@ function getDaysLeft(value: string) {
   return Math.round((dueStart - todayStart) / 86_400_000);
 }
 
-function getLocalDateKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function getDesktopNotificationStorageKey(userId: string) {
   return `todo-flow:desktop-deadline-notifications:${userId}`;
 }
 
 function readDesktopNotificationState(userId: string) {
   if (typeof window === "undefined") {
-    return {} as Record<string, boolean>;
+    return {} as Record<string, number>;
   }
 
   const rawValue = window.localStorage.getItem(getDesktopNotificationStorageKey(userId));
 
   if (!rawValue) {
-    return {} as Record<string, boolean>;
+    return {} as Record<string, number>;
   }
 
   try {
-    const parsedValue = JSON.parse(rawValue) as Record<string, boolean>;
+    const parsedValue = JSON.parse(rawValue) as Record<string, unknown>;
     return Object.fromEntries(
-      Object.entries(parsedValue).filter(([key, value]) => key.endsWith(getLocalDateKey()) && value),
-    );
+      Object.entries(parsedValue).filter(
+        ([, value]) => typeof value === "number" && Number.isFinite(value),
+      ),
+    ) as Record<string, number>;
   } catch {
-    return {} as Record<string, boolean>;
+    return {} as Record<string, number>;
   }
 }
 
-function writeDesktopNotificationState(userId: string, value: Record<string, boolean>) {
+function writeDesktopNotificationState(userId: string, value: Record<string, number>) {
   if (typeof window === "undefined") {
     return;
   }
