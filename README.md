@@ -143,12 +143,15 @@ Environment variable tambahan untuk fitur auth + Telegram:
 ```env
 AUTH_SECRET="replace-with-a-long-random-secret"
 TELEGRAM_BOT_TOKEN="your-bot-token"
+CRON_SECRET="replace-with-a-long-random-secret"
+DEADLINE_NOTIFICATION_TIME_ZONE="Asia/Makassar"
 ```
 
 Catatan:
 
 - login/register sekarang memakai nomor Telegram + password
 - notifikasi Telegram dikirim ke `telegramChatId` user yang di-assign
+- reminder deadline dikirim terjadwal lewat cron ke task yang due hari ini atau sudah lewat deadline
 - setelah update schema, deploy akan menjalankan migration otomatis dari script build
 - advisory lock Prisma dimatikan saat build supaya `prisma migrate deploy` tidak timeout pada koneksi Neon pooler di Vercel
 
@@ -171,6 +174,36 @@ https://your-domain.vercel.app/api/telegram/webhook
 ```
 
 Setelah bot membalas berhasil terhubung, assignment task dan subtask ke user itu akan mengirim notifikasi otomatis.
+
+## Schedule Reminder Deadline
+
+Project ini sekarang menyediakan endpoint cron:
+
+```text
+GET /api/notifications/deadline
+```
+
+Aturan reminder:
+
+- hanya untuk task yang punya `dueDate`
+- hanya untuk task yang status-nya belum `Done`
+- hanya untuk assignee yang sudah terkoneksi ke Telegram
+- dikirim sekali per hari per task
+- task due hari ini dan task overdue sama-sama akan diingatkan
+
+Untuk deploy di Vercel:
+
+1. Set `CRON_SECRET` di environment project
+2. Pastikan `TELEGRAM_BOT_TOKEN` juga aktif
+3. Deploy dengan file `vercel.json` yang sudah berisi cron schedule
+
+Schedule bawaan saat ini:
+
+```text
+0 * * * *
+```
+
+Artinya endpoint reminder akan dipanggil setiap jam. Vercel otomatis mengirim header `Authorization: Bearer <CRON_SECRET>` ke route cron ketika `CRON_SECRET` tersedia.
 
 ## Menjalankan Project
 
