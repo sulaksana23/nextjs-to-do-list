@@ -106,6 +106,7 @@ type WorkspaceResponse = {
 type WorkspaceView = "Dashboard" | "Home" | "Inbox" | "My Tasks" | "Replies" | "Assigned";
 type ProductView = "Docs" | "Forms" | "Whiteboards" | "Goals" | "Timesheet";
 type ActiveView = WorkspaceView | ProductView;
+type DesktopNotificationPermission = NotificationPermission | "unsupported";
 
 const WORKSPACE_ITEMS = [
   { label: "Dashboard", icon: "◫" },
@@ -388,6 +389,9 @@ export default function TaskflowDashboard() {
   const [isProjectSaving, setIsProjectSaving] = useState(false);
   const [isUserSaving, setIsUserSaving] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [desktopNotificationPermission, setDesktopNotificationPermission] =
+    useState<DesktopNotificationPermission>("default");
+  const [desktopNotificationMessage, setDesktopNotificationMessage] = useState("");
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -443,6 +447,15 @@ export default function TaskflowDashboard() {
     void loadWorkspace();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setDesktopNotificationPermission("unsupported");
+      return;
+    }
+
+    setDesktopNotificationPermission(window.Notification.permission);
+  }, []);
+
   const activeProject =
     projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null;
   const currentWorkspaceUser =
@@ -459,6 +472,13 @@ export default function TaskflowDashboard() {
           hasPassword: true,
         }
       : null);
+  const dueNowTasks = tasks.filter((task) => {
+    if (task.assigneeId !== currentUser?.id || task.status === "Done" || !task.dueDate) {
+      return false;
+    }
+
+    return getDaysLeft(task.dueDate) <= 0;
+  });
 
   const scopedTasks = selectedProjectId
     ? tasks.filter((task) => task.projectId === selectedProjectId)
@@ -616,6 +636,93 @@ export default function TaskflowDashboard() {
     setUserRequestError("");
     setIsUserModalOpen(false);
   }
+
+  async function handleEnableDesktopNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setDesktopNotificationPermission("unsupported");
+      setDesktopNotificationMessage("Browser ini belum mendukung desktop notification.");
+      return;
+    }
+
+    const permission = await window.Notification.requestPermission();
+    setDesktopNotificationPermission(permission);
+    setDesktopNotificationMessage(
+      permission === "granted"
+        ? "Desktop notification aktif. Reminder deadline akan muncul di browser ini."
+        : permission === "denied"
+          ? "Desktop notification diblokir. Aktifkan lagi dari pengaturan browser."
+          : "Permintaan desktop notification belum disetujui.",
+    );
+  }
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      desktopNotificationPermission !== "granted" ||
+      !currentUser
+    ) {
+      return;
+    }
+
+    const notifyDueTasks = () => {
+      const todayKey = getLocalDateKey();
+      const sentNotifications = readDesktopNotificationState(currentUser.id);
+      const nextNotifications = { ...sentNotifications };
+
+      for (const task of tasks) {
+        if (task.assigneeId !== currentUser.id || task.status === "Done" || !task.dueDate) {
+          continue;
+        }
+
+        const daysLeft = getDaysLeft(task.dueDate);
+
+        if (daysLeft > 0) {
+          continue;
+        }
+
+        const notificationKey = `${task.id}:${todayKey}`;
+
+        if (sentNotifications[notificationKey]) {
+          continue;
+        }
+
+        const notification = new window.Notification("Todo Flow | Deadline Task", {
+          body:
+            daysLeft < 0
+              ? `${task.title} sudah lewat deadline. Project ${task.projectName}.`
+              : `${task.title} masuk deadline hari ini. Project ${task.projectName}.`,
+          tag: `deadline-${task.id}-${todayKey}`,
+        });
+
+        notification.onclick = () => {
+          window.focus();
+        };
+
+        nextNotifications[notificationKey] = true;
+      }
+
+      writeDesktopNotificationState(currentUser.id, nextNotifications);
+    };
+
+    notifyDueTasks();
+
+    const intervalId = window.setInterval(notifyDueTasks, 60_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        notifyDueTasks();
+      }
+    };
+
+    window.addEventListener("focus", notifyDueTasks);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", notifyDueTasks);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [currentUser, desktopNotificationPermission, tasks]);
 
   function addSubtaskToDraft() {
     const title = draft.subtaskInput.trim();
@@ -1241,6 +1348,36 @@ export default function TaskflowDashboard() {
               </span>
             </div>
           ) : null}
+          <div className="workspace-connectCard">
+            <span className="workspace-connectTitle">Desktop notification</span>
+            <span className="workspace-connectCode">
+              {desktopNotificationPermission === "granted"
+                ? "Active"
+                : desktopNotificationPermission === "denied"
+                  ? "Blocked"
+                  : desktopNotificationPermission === "unsupported"
+                    ? "Unsupported"
+                    : "Not enabled"}
+            </span>
+            <span className="workspace-connectHelp">
+              {dueNowTasks.length > 0
+                ? `${dueNowTasks.length} task kamu sedang due atau overdue.`
+                : "Browser akan mengingatkan saat task kamu masuk deadline."}
+            </span>
+            {desktopNotificationPermission !== "granted" &&
+            desktopNotificationPermission !== "unsupported" ? (
+              <button
+                type="button"
+                className="workspace-ghostButton"
+                onClick={handleEnableDesktopNotifications}
+              >
+                Enable Desktop Alert
+              </button>
+            ) : null}
+            {desktopNotificationMessage ? (
+              <span className="workspace-connectHelp">{desktopNotificationMessage}</span>
+            ) : null}
+          </div>
           <div className="workspace-statLine">
             <span>Open</span>
             <span>{openCount}</span>
@@ -2840,6 +2977,50 @@ function getDaysLeft(value: string) {
   ).getTime();
 
   return Math.round((dueStart - todayStart) / 86_400_000);
+}
+
+function getLocalDateKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDesktopNotificationStorageKey(userId: string) {
+  return `todo-flow:desktop-deadline-notifications:${userId}`;
+}
+
+function readDesktopNotificationState(userId: string) {
+  if (typeof window === "undefined") {
+    return {} as Record<string, boolean>;
+  }
+
+  const rawValue = window.localStorage.getItem(getDesktopNotificationStorageKey(userId));
+
+  if (!rawValue) {
+    return {} as Record<string, boolean>;
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as Record<string, boolean>;
+    return Object.fromEntries(
+      Object.entries(parsedValue).filter(([key, value]) => key.endsWith(getLocalDateKey()) && value),
+    );
+  } catch {
+    return {} as Record<string, boolean>;
+  }
+}
+
+function writeDesktopNotificationState(userId: string, value: Record<string, boolean>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    getDesktopNotificationStorageKey(userId),
+    JSON.stringify(value),
+  );
 }
 
 function WorkspaceSkeleton() {
