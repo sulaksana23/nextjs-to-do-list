@@ -9,9 +9,10 @@ const ApexChart = dynamic(() => import("react-apexcharts"), {
 });
 
 type Priority = "Low" | "Medium" | "High";
-type StatusFilter = "All" | "Open" | "Done";
 type SortOption = "Newest" | "Oldest" | "Priority" | "Due soon";
 type TaskStatus = "Hold" | "In Progress" | "Done";
+type StatusFilter = "All" | "Open" | TaskStatus;
+type HomeCanvas = "List" | "Board";
 type PermissionKey =
   | "MANAGE_COMPANY_SETTINGS"
   | "MANAGE_USERS"
@@ -194,6 +195,14 @@ const PRODUCT_ITEMS = [
 const RAIL_ITEMS = ["⌘", "⌂", "☰", "◨", "✦", "⚙"];
 
 const MODAL_TABS = ["Task", "Doc", "Reminder", "Whiteboard", "Dashboard"] as const;
+const TASK_STATUS_OPTIONS = ["Hold", "In Progress", "Done"] as const satisfies ReadonlyArray<TaskStatus>;
+const STATUS_FILTER_OPTIONS = [
+  "All",
+  "Open",
+  "Hold",
+  "In Progress",
+  "Done",
+] as const satisfies ReadonlyArray<StatusFilter>;
 
 const priorityWeight: Record<Priority, number> = {
   High: 0,
@@ -520,6 +529,7 @@ export default function TaskflowDashboard() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>("Home");
+  const [homeCanvas, setHomeCanvas] = useState<HomeCanvas>("List");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<TaskStatus, boolean>>({
@@ -674,7 +684,11 @@ export default function TaskflowDashboard() {
         return false;
       }
 
-      if (statusFilter === "Done" && task.status !== "Done") {
+      if (
+        statusFilter !== "All" &&
+        statusFilter !== "Open" &&
+        task.status !== statusFilter
+      ) {
         return false;
       }
 
@@ -732,7 +746,7 @@ export default function TaskflowDashboard() {
   const completionRate =
     scopedTasks.length === 0 ? 0 : Math.round((doneCount / scopedTasks.length) * 100);
 
-  const groupedTasks = (["Hold", "In Progress", "Done"] as TaskStatus[]).map((status) => ({
+  const groupedTasks = TASK_STATUS_OPTIONS.map((status) => ({
     status,
     tasks: filteredTasks.filter((task) => task.status === status),
   }));
@@ -787,6 +801,21 @@ export default function TaskflowDashboard() {
     setEditingTaskId(null);
     setValidationMessage("");
     setIsModalOpen(false);
+  }
+
+  function openCreateTaskModal() {
+    setEditingTaskId(null);
+    setDraft((current) => ({
+      ...defaultDraft,
+      projectId: selectedProjectId || projects[0]?.id || current.projectId,
+      assigneeId: currentUser?.id || users[0]?.id || current.assigneeId,
+    }));
+    setSubtaskAssigneeId(currentUser?.id || users[0]?.id || "");
+    setValidationMessage("");
+    setRequestError("");
+    setIsModalOpen(true);
+    setActiveView("Home");
+    setHomeCanvas("List");
   }
 
   function openCreateProjectModal() {
@@ -1874,32 +1903,46 @@ export default function TaskflowDashboard() {
         {activeView === "Home" ? (
           <section className="workspace-subbar">
             <div className="workspace-subbarLeft">
-              <span className="workspace-tab muted">Add Channel</span>
-              <span className="workspace-tab">Board</span>
-              <span className="workspace-tab active">List</span>
-              <span className="workspace-tab">+ View</span>
+              <button
+                type="button"
+                className={canManageProjects ? "workspace-tab" : "workspace-tab muted"}
+                onClick={openCreateProjectModal}
+                disabled={!canManageProjects}
+              >
+                Add Channel
+              </button>
+              <button
+                type="button"
+                className={homeCanvas === "Board" ? "workspace-tab active" : "workspace-tab"}
+                onClick={() => setHomeCanvas("Board")}
+              >
+                Board
+              </button>
+              <button
+                type="button"
+                className={homeCanvas === "List" ? "workspace-tab active" : "workspace-tab"}
+                onClick={() => setHomeCanvas("List")}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                className="workspace-tab"
+                onClick={() => setActiveView("Dashboard")}
+              >
+                + View
+              </button>
             </div>
             <div className="workspace-subbarRight">
-              <span className="workspace-miniIcon">☰</span>
+              <span className={homeCanvas === "List" ? "workspace-miniIcon active" : "workspace-miniIcon"}>☰</span>
+              <span className={homeCanvas === "Board" ? "workspace-miniIcon active" : "workspace-miniIcon"}>▥</span>
               <span className="workspace-miniIcon">◎</span>
               <span className="workspace-miniIcon">👥</span>
               {canManageTasks ? (
                 <button
                   type="button"
                   className="workspace-primaryButton"
-                  onClick={() => {
-                    setEditingTaskId(null);
-                    setDraft((current) => ({
-                      ...defaultDraft,
-                      projectId: selectedProjectId || projects[0]?.id || current.projectId,
-                      assigneeId: currentUser?.id || users[0]?.id || current.assigneeId,
-                    }));
-                    setSubtaskAssigneeId(currentUser?.id || users[0]?.id || "");
-                    setValidationMessage("");
-                    setRequestError("");
-                    setIsModalOpen(true);
-                    setActiveView("Home");
-                  }}
+                  onClick={openCreateTaskModal}
                 >
                   + Task
                 </button>
@@ -2041,7 +2084,7 @@ export default function TaskflowDashboard() {
         {activeView === "Home" ? (
         <section className="workspace-toolbar">
           <div className="workspace-pills">
-            {(["All", "Open", "Done"] as StatusFilter[]).map((option) => (
+            {STATUS_FILTER_OPTIONS.map((option) => (
               <button
                 key={option}
                 type="button"
@@ -2065,7 +2108,77 @@ export default function TaskflowDashboard() {
         </section>
         ) : null}
 
-        {activeView === "Home" ? (
+        {activeView === "Home" && homeCanvas === "Board" ? (
+        <section className="workspace-board">
+          {groupedTasks.map((group) => (
+            <div key={group.status} className="workspace-boardColumn">
+              <div className="workspace-boardColumnHeader">
+                <span className={`workspace-statusChip ${getStatusTone(group.status)}`}>
+                  {group.status.toUpperCase()}
+                </span>
+                <span className="workspace-boardColumnCount">{group.tasks.length}</span>
+              </div>
+
+              <div className="workspace-boardStack">
+                {group.tasks.length > 0 ? (
+                  group.tasks.map((task) => {
+                    const assignee = users.find((user) => user.id === task.assigneeId);
+                    const subtasks = normalizeSubtasks(task.subtasks);
+                    const completedSubtasks = subtasks.filter((subtask) => subtask.completed).length;
+
+                    return (
+                      <article key={task.id} className="workspace-boardCard">
+                        <div className="workspace-boardCardTop">
+                          <span className="workspace-boardProject">{task.projectName}</span>
+                          <span className="workspace-boardPriority">{task.priority}</span>
+                        </div>
+                        <div>
+                          <h3 className="workspace-boardTitle">{task.title}</h3>
+                          <p className="workspace-boardMeta">
+                            {task.description || "No description yet."}
+                          </p>
+                        </div>
+                        <div className="workspace-boardDetails">
+                          <span>Due {formatDate(task.dueDate)}</span>
+                          <span>
+                            Progress {subtasks.length > 0 ? `${completedSubtasks}/${subtasks.length}` : "-"}
+                          </span>
+                        </div>
+                        <div className="workspace-boardFooter">
+                          <div className="workspace-boardAssignee">
+                            {assignee ? <Avatar user={assignee} /> : <span className="workspace-boardAvatarEmpty">?</span>}
+                            <span>{assignee?.name || "Unassigned"}</span>
+                          </div>
+                          <div className="workspace-boardActions">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(task)}
+                              className="workspace-ghostButton"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(task.id)}
+                              className="workspace-dangerButton"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <div className="workspace-boardEmpty">No tasks in this column.</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </section>
+        ) : null}
+
+        {activeView === "Home" && homeCanvas === "List" ? (
         <section className="workspace-table">
           <div className="workspace-tableHead">
             <span>Name</span>

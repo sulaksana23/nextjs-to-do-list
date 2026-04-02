@@ -450,8 +450,11 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid transparent;
   border-radius: 0.58rem;
+  background: transparent;
   color: var(--text-secondary);
+  cursor: pointer;
   padding: 0.34rem 0.56rem;
   font-size: 0.74rem;
   font-weight: 600;
@@ -459,11 +462,16 @@ a {
 
 .workspace-tab.active {
   background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
   color: white;
 }
 
 .workspace-tab.muted {
   color: var(--text-muted);
+}
+
+.workspace-tab:disabled {
+  cursor: not-allowed;
 }
 
 .workspace-miniIcon {
@@ -476,6 +484,130 @@ a {
   border-radius: 0.58rem;
   color: var(--text-secondary);
   font-size: 0.72rem;
+}
+
+.workspace-miniIcon.active {
+  border-color: rgba(245, 66, 145, 0.28);
+  background: rgba(245, 66, 145, 0.12);
+  color: white;
+}
+
+.workspace-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  padding: 0 0.8rem 0.8rem;
+}
+
+.workspace-boardColumn {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: rgba(15, 15, 17, 0.84);
+  min-height: 24rem;
+}
+
+.workspace-boardColumnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 0.9rem 0.72rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.workspace-boardColumnCount {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.workspace-boardStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.workspace-boardCard {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.8rem;
+}
+
+.workspace-boardCardTop,
+.workspace-boardDetails,
+.workspace-boardFooter,
+.workspace-boardAssignee,
+.workspace-boardActions {
+  display: flex;
+  align-items: center;
+}
+
+.workspace-boardCardTop,
+.workspace-boardDetails,
+.workspace-boardFooter {
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.workspace-boardProject,
+.workspace-boardPriority,
+.workspace-boardDetails {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.workspace-boardPriority {
+  font-weight: 700;
+}
+
+.workspace-boardTitle {
+  margin: 0;
+  color: white;
+  font-size: 0.95rem;
+}
+
+.workspace-boardMeta {
+  margin: 0.28rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.workspace-boardAssignee {
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
+.workspace-boardAvatarEmpty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.workspace-boardActions {
+  gap: 0.45rem;
+}
+
+.workspace-boardEmpty {
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 0.85rem;
+  color: var(--text-muted);
+  padding: 1rem 0.9rem;
+  text-align: center;
+  font-size: 0.82rem;
 }
 
 .workspace-pills {
@@ -1627,6 +1759,10 @@ a {
   .workspace-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .workspace-board {
+    grid-template-columns: 1fr;
   }
 
   .workspace-searchWrap {
