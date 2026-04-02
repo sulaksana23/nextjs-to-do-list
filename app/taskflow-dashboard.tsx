@@ -113,7 +113,7 @@ type WorkspaceResponse = {
   currentUser: SessionUser;
 };
 
-type WorkspaceView = "Dashboard" | "Home" | "Inbox" | "My Tasks" | "Replies" | "Assigned";
+type WorkspaceView = "Dashboard" | "Home" | "Inbox" | "My Tasks" | "Replies" | "Assigned" | "Users";
 type ProductView = "Docs" | "Forms" | "Whiteboards" | "Goals" | "Timesheet";
 type ActiveView = WorkspaceView | ProductView;
 type DesktopNotificationPermission = NotificationPermission | "unsupported";
@@ -128,6 +128,7 @@ const WORKSPACE_ITEMS = [
   { label: "My Tasks", icon: "✓" },
   { label: "Replies", icon: "↩" },
   { label: "Assigned", icon: "@" },
+  { label: "Users", icon: "👥" },
 ] as const satisfies ReadonlyArray<{ label: WorkspaceView; icon: string }>;
 
 const PRODUCT_ITEMS = [
@@ -1559,9 +1560,9 @@ export default function TaskflowDashboard() {
             <button
               type="button"
               className="workspace-ghostButton"
-              onClick={() => setActiveView("Timesheet")}
+              onClick={() => setActiveView("Users")}
             >
-              Team
+              Users
             </button>
 
             <button type="button" className="workspace-ghostButton" onClick={handleLogout}>
@@ -2145,13 +2146,100 @@ export default function TaskflowDashboard() {
           </section>
         ) : null}
 
-        {activeView === "Timesheet" ? (
+        {activeView === "Users" ? (
           <section className="workspace-home">
-            <div className="workspace-homePanel">
+            <div className="workspace-homeHero">
+              <div>
+                <p className="workspace-sectionEyebrow">Users</p>
+                <h2 className="workspace-homeTitle">Kelola user, role, dan permission perusahaan.</h2>
+                <p className="workspace-homeText">
+                  Semua user di halaman ini hanya untuk company {currentUser.companyName}. Role
+                  menentukan siapa yang bisa mengelola user dan workspace.
+                </p>
+              </div>
+              <div className="workspace-homeStats">
+                <HomeStatCard label="Total Users" value={users.length} />
+                <HomeStatCard
+                  label="Admins"
+                  value={users.filter((user) => user.role !== "MEMBER").length}
+                />
+                <HomeStatCard
+                  label="Telegram Ready"
+                  value={users.filter((user) => user.telegramConnected).length}
+                />
+                <HomeStatCard
+                  label="Can Manage"
+                  value={canManageUsers ? 1 : 0}
+                />
+              </div>
+            </div>
+
+            <div className="workspace-homeGrid">
+              <div className="workspace-homePanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Permissions</p>
+                    <h3 className="workspace-homePanelTitle">Role matrix</h3>
+                  </div>
+                </div>
+                <div className="workspace-homeList">
+                  <div className="workspace-homeItem static">
+                    <div>
+                      <p className="workspace-homeItemTitle">SUPERADMINISTRATOR</p>
+                      <p className="workspace-homeItemMeta">
+                        Full access ke user management, project, task, dan pengaturan perusahaan.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="workspace-homeItem static">
+                    <div>
+                      <p className="workspace-homeItemTitle">ADMINISTRATOR</p>
+                      <p className="workspace-homeItemMeta">
+                        Bisa CRUD user perusahaan dan kelola operasional workspace harian.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="workspace-homeItem static">
+                    <div>
+                      <p className="workspace-homeItemTitle">MEMBER</p>
+                      <p className="workspace-homeItemMeta">
+                        Bisa bekerja di task yang diassign, tapi tidak bisa mengelola user.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="workspace-homePanel">
+                <div className="workspace-homePanelHeader">
+                  <div>
+                    <p className="workspace-sectionEyebrow">Access</p>
+                    <h3 className="workspace-homePanelTitle">Current session</h3>
+                  </div>
+                </div>
+                <div className="workspace-homeList">
+                  <div className="workspace-homeItem static">
+                    <div>
+                      <p className="workspace-homeItemTitle">{currentUser.name}</p>
+                      <p className="workspace-homeItemMeta">
+                        {currentUser.companyName} • {currentUser.role}
+                      </p>
+                      <p className="workspace-homeItemMeta">
+                        {canManageUsers
+                          ? "Akun ini bisa membuat, mengubah, dan menghapus user."
+                          : "Akun ini hanya bisa melihat daftar user dan permission."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="workspace-homePanel" style={{ marginTop: "1rem" }}>
               <div className="workspace-homePanelHeader">
                 <div>
-                  <p className="workspace-sectionEyebrow">Timesheet</p>
-                  <h3 className="workspace-homePanelTitle">Team, login, and Telegram routing</h3>
+                  <p className="workspace-sectionEyebrow">Directory</p>
+                  <h3 className="workspace-homePanelTitle">User directory, role, and Telegram routing</h3>
                 </div>
                 {canManageUsers ? (
                   <button type="button" className="workspace-primaryButton" onClick={openCreateUserModal}>
@@ -2224,7 +2312,8 @@ export default function TaskflowDashboard() {
         activeView !== "Forms" &&
         activeView !== "Whiteboards" &&
         activeView !== "Goals" &&
-        activeView !== "Timesheet" ? (
+        activeView !== "Timesheet" &&
+        activeView !== "Users" ? (
           <section className="workspace-home">
             <div className="workspace-homePanel">
               <div className="workspace-homePanelHeader">
