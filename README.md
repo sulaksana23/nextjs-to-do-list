@@ -242,6 +242,12 @@ That means the deadline reminder runs every day at `02:00 UTC` or `10:00 WITA`.
 - analytics and observability
 - splitting the large dashboard component into smaller modules
 
+## Support
+
+If this project helps you, you can support me on Trakteer:
+
+- [https://trakteer.id/bali_techsolution](https://trakteer.id/bali_techsolution)
+
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
